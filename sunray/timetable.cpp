@@ -227,41 +227,6 @@ bool TimeTable::findAutostartTime(weektime_t &time){
     
     // check timetable and rain timeouts    
     for (int hour =0; hour < 24 * 7; hour++){
-        if ( (!dockOp.dockReasonRainTriggered) || (waitmillis > dockOp.dockReasonRainAutoStartTime) ) {  // raining timeout 
-            if (!timetable.enable){  // timetable disabled
-                if ((!dockOp.initiatedByOperator) && (maps.mowPointsIdx > 0)) { // mowing not completed yet                    
-                    CONSOLE.print("AUTOSTART: mowing not completed yet ");
-                    time = checktime;
-                    dumpWeekTime(time);
-                    autostart = true;
-                    break;
-                }
-            } else {   // timetable enabled
-                bool allowed = mowingAllowed(checktime);
-                if (allowed != checkstate){   
-                    if ((allowed) && (!triggered))    {         
-                        // timetable status transition
-                        CONSOLE.print("AUTOSTART: timetable transition ");                    
-                        time = checktime;
-                        dumpWeekTime(time);
-                        autostart = true;
-                        break;
-                    }
-                    triggered = false;
-                    checkstate = allowed;
-                }
-                if (allowed){   // timetable status
-                    if ( (!dockOp.initiatedByOperator) && ((!mowingCompletedInCurrentTimeFrame) || (maps.mowPointsIdx > 0)) )  {
-                        CONSOLE.print("AUTOSTART: timetable state ");                    
-                        time =checktime;
-                        dumpWeekTime(time);
-                        autostart = true;
-                        break;
-                    }
-                }
-            }
-        }
-        // continue to next hour in timetable
         checktime.hour++;
         waitmillis += 1000 * 60 * 60; // 1 hour
         if (checktime.hour > 23){

@@ -4,10 +4,6 @@
 // or Grau GmbH Commercial License for commercial use (http://grauonline.de/cms2/?page_id=153)
 
 #include <Arduino.h>
-#include <SD.h>
-#ifdef __linux__
-  #include <WiFi.h>
-#endif
 
 #include "robot.h"
 #include "StateEstimator.h"
@@ -16,38 +12,23 @@
 #include "LineTracker.h"
 #include "comm.h"
 #include "src/op/op.h"
-#ifdef __linux__
-  #include <BridgeClient.h>
-#else
-  #include "src/esp/WiFiEsp.h"
-#endif
-#include "PubSubClient.h"
 #include "RunningMedian.h"
 #include "pinman.h"
 #include "ble.h"
 #include "motor.h"
 #include "src/driver/AmRobotDriver.h"
-#include "src/driver/CanRobotDriver.h"
-#include "src/driver/SerialRobotDriver.h"
 #include "src/driver/MpuDriver.h"
-#include "src/driver/BnoDriver.h"
-#include "src/driver/IcmDriver.h"
 #include "battery.h"
 #include "gps.h"
 #include "src/ublox/ublox.h"
-#include "src/skytraq/skytraq.h"
-#include "src/lidar/lidar.h"
 #include "helper.h"
 #include "buzzer.h"
-#include "rcmodel.h"
 #include "map.h"
 #include "config.h"
 #include "reset.h"
 #include "cpu.h"
 #include "i2c.h"
-#include "src/test/test.h"
 #include "bumper.h"
-#include "mqtt.h"
 #include "events.h"
 
 // #define I2C_SPEED  10000
@@ -59,74 +40,25 @@ const signed char orientationMatrix[9] = {
   0, 0, 1
 };
 
-#ifdef DRV_SIM_ROBOT
-  SimImuDriver imuDriver(robotDriver);
-#elif defined(GPS_LIDAR)
-  LidarImuDriver imuDriver;
-#elif defined(BNO055)
-  BnoDriver imuDriver;
-#elif defined(ICM20948)
-  IcmDriver imuDriver;
-#else
+
   MpuDriver imuDriver;
-#endif
-#ifdef DRV_SERIAL_ROBOT
-  SerialRobotDriver robotDriver;
-  SerialMotorDriver motorDriver(robotDriver);
-  SerialBatteryDriver batteryDriver(robotDriver);
-  SerialBumperDriver bumperDriver(robotDriver);
-  SerialStopButtonDriver stopButton(robotDriver);
-  SerialRainSensorDriver rainDriver(robotDriver);
-  SerialLiftSensorDriver liftDriver(robotDriver);
-  SerialBuzzerDriver buzzerDriver(robotDriver);
-#elif defined(DRV_CAN_ROBOT)
-  CanRobotDriver robotDriver;
-  CanMotorDriver motorDriver(robotDriver);
-  CanBatteryDriver batteryDriver(robotDriver);
-  CanBumperDriver bumperDriver(robotDriver);
-  CanStopButtonDriver stopButton(robotDriver);
-  CanRainSensorDriver rainDriver(robotDriver);
-  CanLiftSensorDriver liftDriver(robotDriver);
-  CanBuzzerDriver buzzerDriver(robotDriver);
-#elif defined(DRV_SIM_ROBOT)
-  SimRobotDriver robotDriver;
-  SimMotorDriver motorDriver(robotDriver);
-  SimBatteryDriver batteryDriver(robotDriver);
-  SimBumperDriver bumperDriver(robotDriver);
-  SimStopButtonDriver stopButton(robotDriver);
-  SimRainSensorDriver rainDriver(robotDriver);
-  SimLiftSensorDriver liftDriver(robotDriver);
-  SimBuzzerDriver buzzerDriver(robotDriver);
-#else
+
   AmRobotDriver robotDriver;
   AmMotorDriver motorDriver;
   AmBatteryDriver batteryDriver;
   AmBumperDriver bumperDriver;
   AmStopButtonDriver stopButton;
-  AmRainSensorDriver rainDriver;
-  AmLiftSensorDriver liftDriver;
   AmBuzzerDriver buzzerDriver;
-#endif
 Motor motor;
 Battery battery;
 PinManager pinMan;
-#ifdef DRV_SIM_ROBOT
-  SimGpsDriver gps(robotDriver);
-#elif GPS_LIDAR
-  LidarGpsDriver gps;
-#elif GPS_SKYTRAQ
-  SKYTRAQ gps;
-#else 
+
   UBLOX gps;
-#endif 
+
 BLEConfig bleConfig;
 Buzzer buzzer;
-LidarBumperDriver lidarBumper;
-Sonar sonar;
 Bumper bumper;
-VL53L0X tof(VL53L0X_ADDRESS_DEFAULT);
 Map maps;
-RCModel rcmodel;
 TimeTable timetable;
 
 int stateButton = 0;  
@@ -157,7 +89,6 @@ unsigned long nextGPSMotionCheckTime = 0;
 bool finishAndRestart = false;
 
 unsigned long nextBadChargingContactCheck = 0;
-unsigned long nextToFTime = 0;
 unsigned long linearMotionStartTime = 0;
 unsigned long angularMotionStartTime = 0;
 unsigned long overallMotionTimeout = 0;
@@ -183,27 +114,7 @@ String psOutput = "";
 unsigned long wdResetTimer = millis();
 //##################################################################################
 
-bool wifiFound = false;
-char ssid[] = WIFI_SSID;      // your network SSID (name)
-char pass[] = WIFI_PASS;        // your network password
-WiFiEspServer server(80);
-bool hasClient = false;
-WiFiEspClient client;
-WiFiEspClient espClient;
-PubSubClient mqttClient(espClient);
-//int status = WL_IDLE_STATUS;     // the Wifi radio's status
-#ifdef ENABLE_NTRIP
-  NTRIPClient ntrip;  // NTRIP tcp client (optional)
-#endif
-#ifdef GPS_USE_TCP
-  WiFiClient gpsClient; // GPS tcp client (optional)  
-#endif
-
 int motorErrorCounter = 0;
-
-
-RunningMedian<unsigned int,3> tofMeasurements;
-
 
 // must be defined to override default behavior
 void watchdogSetup (void){} 
@@ -236,34 +147,10 @@ void sensorTest(){
   unsigned long stopTime = millis() + 60000;  
   unsigned long nextMeasureTime = 0;
   while (millis() < stopTime){
-    sonar.run();
     bumper.run();
-    lidarBumper.run();
-    liftDriver.run();
     robotDriver.run();   
     if (millis() > nextMeasureTime){
       nextMeasureTime = millis() + 1000;      
-      if (SONAR_ENABLE){
-        CONSOLE.print("sonar (enabled,left,center,right,triggered): ");
-        CONSOLE.print(sonar.enabled);
-        CONSOLE.print("\t");
-        CONSOLE.print(sonar.distanceLeft);
-        CONSOLE.print("\t");
-        CONSOLE.print(sonar.distanceCenter);
-        CONSOLE.print("\t");
-        CONSOLE.print(sonar.distanceRight);
-        CONSOLE.print("\t");
-        CONSOLE.print(((int)sonar.obstacle()));
-        CONSOLE.print("\t");
-      }
-      if (TOF_ENABLE){   
-        CONSOLE.print("ToF (dist): ");
-        int v = tof.readRangeContinuousMillimeters();        
-        if (!tof.timeoutOccurred()) {     
-          CONSOLE.print(v/10);
-        }
-        CONSOLE.print("\t");
-      }    
       if (BUMPER_ENABLE){
         CONSOLE.print("bumper (left,right,triggered,nearObstacle): ");
         CONSOLE.print(((int)bumper.testLeft()));
@@ -274,24 +161,6 @@ void sensorTest(){
         CONSOLE.print("\t");
         CONSOLE.print(((int)bumper.nearObstacle()));        
         CONSOLE.print("\t");       
-      }
-      if (LIDAR_BUMPER_ENABLE) {
-        CONSOLE.print("LiDAR bumper (triggered,nearObstacle): ");
-        CONSOLE.print(((int)lidarBumper.obstacle()));
-        CONSOLE.print("\t");
-        CONSOLE.print(((int)lidarBumper.nearObstacle()));        
-        CONSOLE.print("\t");
-      }
-	    #ifdef ENABLE_LIFT_DETECTION 
-        CONSOLE.print("lift sensor (triggered): ");		
-        bool liftTriggered = liftDriver.triggered();
-        if (LIFT_INVERT) liftTriggered = !liftTriggered;           
-        CONSOLE.print( ((int)liftTriggered) );	
-        CONSOLE.print("\t");							            
-      #endif 
-      if (RAIN_ENABLE){
-        CONSOLE.print("rain (triggered): ");
-        CONSOLE.print( ((int)rainDriver.triggered()) );                                                                                        
       } 
       CONSOLE.println();  
       watchdogReset();
@@ -299,77 +168,6 @@ void sensorTest(){
   }
   CONSOLE.println("end of sensor test - please ignore any IMU/GPS errors");
 }
-
-
-void startWIFI(){
-#ifdef __linux__
-  WiFi.begin();
-  wifiFound = true;
-#else  
-  CONSOLE.println("probing for ESP8266 (NOTE: will fail for ESP32)...");
-  int status = WL_IDLE_STATUS;     // the Wifi radio's status
-  WIFI.begin(WIFI_BAUDRATE); 
-  WIFI.print("AT\r\n");  
-  delay(500);
-  String res = "";  
-  while (WIFI.available()){
-    char ch = WIFI.read();    
-    res += ch;
-  }
-  if (res.indexOf("OK") == -1){
-    CONSOLE.println("WIFI (ESP8266) not found! If you have ESP8266 and the problem persist, you may need to flash your ESP to firmware 2.2.1");
-    return;
-  }    
-  WiFi.init(&WIFI);  
-  if (WiFi.status() == WL_NO_SHIELD) {
-    CONSOLE.println("ERROR: WiFi not present");       
-    return;
-  }   
-  wifiFound = true;
-  CONSOLE.print("WiFi found! ESP8266 firmware: ");
-  CONSOLE.println(WiFi.firmwareVersion());       
-  if (START_AP){
-    CONSOLE.print("Attempting to start AP ");  
-    CONSOLE.println(ssid);
-    // uncomment these two lines if you want to set the IP address of the AP
-    #ifdef WIFI_IP  
-      IPAddress localIp(WIFI_IP);
-      WiFi.configAP(localIp);  
-    #endif            
-    // start access point
-    status = WiFi.beginAP(ssid, 10, pass, ENC_TYPE_WPA2_PSK);         
-  } else {
-    while ( status != WL_CONNECTED) {
-      CONSOLE.print("Attempting to connect to WPA SSID: ");
-      CONSOLE.println(ssid);      
-      status = WiFi.begin(ssid, pass);
-      #ifdef WIFI_IP  
-        IPAddress localIp(WIFI_IP);
-        WiFi.config(localIp);  
-      #endif
-    }    
-  } 
-  CONSOLE.print("You're connected with SSID=");    
-  CONSOLE.print(WiFi.SSID());
-  CONSOLE.print(" and IP=");        
-  IPAddress ip = WiFi.localIP();    
-  CONSOLE.println(ip);   
-#endif         
-  #if defined(ENABLE_UDP)
-    udpSerial.beginUDP();  
-  #endif    
-  if (ENABLE_SERVER){
-    //server.listenOnLocalhost();
-    server.begin();
-  }
-  if (ENABLE_MQTT){
-    CONSOLE.println("MQTT: enabled");
-    mqttClient.setServer(MQTT_SERVER, MQTT_PORT);
-    mqttClient.setCallback(mqttCallback);
-  }  
-}
-
-
 
 // check for RTC module
 bool checkAT24C32() {
@@ -389,11 +187,9 @@ bool checkAT24C32() {
       }
     }
   }
-  #ifdef __linux__  
-    return true;
-  #else
+  
     return (r == 1);
-  #endif
+  
 }
 
 
@@ -401,60 +197,18 @@ void outputConfig(){
   #ifdef ENABLE_PASS
     CONSOLE.println("ENABLE_PASS");
   #endif 
-  #ifdef ENABLE_TILT_DETECTION
-    CONSOLE.println("ENABLE_TILT_DETECTION");
-  #endif
+
   CONSOLE.print("FREEWHEEL_IS_AT_BACKSIDE: ");
   CONSOLE.println(FREEWHEEL_IS_AT_BACKSIDE);
   CONSOLE.print("WHEEL_BASE_CM: ");
   CONSOLE.println(WHEEL_BASE_CM);
   CONSOLE.print("WHEEL_DIAMETER: ");
   CONSOLE.println(WHEEL_DIAMETER);
-  #ifdef ENABLE_LIFT_DETECTION
-    CONSOLE.println("ENABLE_LIFT_DETECTION");
-    #ifdef LIFT_OBSTACLE_AVOIDANCE
-      CONSOLE.println("LIFT_OBSTACLE_AVOIDANCE");
-    #endif
-  #endif
+
   CONSOLE.print("ENABLE_ODOMETRY_ERROR_DETECTION: ");
   CONSOLE.println(ENABLE_ODOMETRY_ERROR_DETECTION);
   CONSOLE.print("TICKS_PER_REVOLUTION: ");
   CONSOLE.println(TICKS_PER_REVOLUTION);
-  #ifdef MOTOR_DRIVER_BRUSHLESS
-    CONSOLE.println("MOTOR_DRIVER_BRUSHLESS");
-  #endif
-
-  #ifdef MOTOR_DRIVER_BRUSHLESS_MOW_DRV8308
-    CONSOLE.println("MOTOR_DRIVER_BRUSHLESS_MOW_DRV8308");
-  #endif 
-  #ifdef MOTOR_DRIVER_BRUSHLESS_MOW_BLDC8015A
-    CONSOLE.println("MOTOR_DRIVER_BRUSHLESS_MOW_BLDC8015A");
-  #endif
-  #ifdef MOTOR_DRIVER_BRUSHLESS_MOW_A4931
-    CONSOLE.println("MOTOR_DRIVER_BRUSHLESS_MOW_A4931");
-  #endif 
-  #ifdef MOTOR_DRIVER_BRUSHLESS_MOW_JYQD
-    CONSOLE.println("MOTOR_DRIVER_BRUSHLESS_MOW_JYQD");
-  #endif 
-  #ifdef MOTOR_DRIVER_BRUSHLESS_MOW_OWL
-    CONSOLE.println("MOTOR_DRIVER_BRUSHLESS_MOW_OWL");
-  #endif 
-
-  #ifdef MOTOR_DRIVER_BRUSHLESS_GEARS_DRV8308
-    CONSOLE.println("MOTOR_DRIVER_BRUSHLESS_GEARS_DRV8308");
-  #endif 
-  #ifdef MOTOR_DRIVER_BRUSHLESS_GEARS_BLDC8015A
-    CONSOLE.println("MOTOR_DRIVER_BRUSHLESS_GEARS_BLDC8015A");
-  #endif
-  #ifdef MOTOR_DRIVER_BRUSHLESS_GEARS_A4931
-    CONSOLE.println("MOTOR_DRIVER_BRUSHLESS_GEARS_A4931");
-  #endif     
-  #ifdef MOTOR_DRIVER_BRUSHLESS_GEARS_JYQD
-    CONSOLE.println("MOTOR_DRIVER_BRUSHLESS_GEARS_JYQD");
-  #endif
-  #ifdef MOTOR_DRIVER_BRUSHLESS_GEARS_OWL
-    CONSOLE.println("MOTOR_DRIVER_BRUSHLESS_GEARS_OWL");
-  #endif
   
   CONSOLE.print("MOTOR_FAULT_CURRENT: ");
   CONSOLE.println(MOTOR_FAULT_CURRENT);
@@ -490,15 +244,6 @@ void outputConfig(){
   CONSOLE.println(ENABLE_FAULT_OBSTACLE_AVOIDANCE);
   CONSOLE.print("ENABLE_RPM_FAULT_DETECTION: ");
   CONSOLE.println(ENABLE_RPM_FAULT_DETECTION);
-  #ifdef SONAR_INSTALLED
-    CONSOLE.println("SONAR_INSTALLED");
-    CONSOLE.print("SONAR_ENABLE: ");  
-    CONSOLE.println(SONAR_ENABLE);
-    CONSOLE.print("SONAR_TRIGGER_OBSTACLES: ");
-    CONSOLE.println(SONAR_TRIGGER_OBSTACLES);
-  #endif
-  CONSOLE.print("RAIN_ENABLE: ");
-  CONSOLE.println(RAIN_ENABLE);
   CONSOLE.print("BUMPER_ENABLE: ");
   CONSOLE.println(BUMPER_ENABLE);  
   CONSOLE.print("BUMPER_DEADTIME: ");
@@ -507,8 +252,6 @@ void outputConfig(){
   CONSOLE.println(BUMPER_TRIGGER_DELAY);
   CONSOLE.print("BUMPER_MAX_TRIGGER_TIME: ");
   CONSOLE.println(BUMPER_MAX_TRIGGER_TIME);  
-  CONSOLE.print("LIDAR_BUMPER_ENABLE: ");
-  CONSOLE.println(LIDAR_BUMPER_ENABLE);  
   CONSOLE.print("CURRENT_FACTOR: ");
   CONSOLE.println(CURRENT_FACTOR);
   CONSOLE.print("GO_HOME_VOLTAGE: ");
@@ -521,12 +264,6 @@ void outputConfig(){
   CONSOLE.println(BAT_SWITCH_OFF_IDLE);
   CONSOLE.print("BAT_SWITCH_OFF_UNDERVOLTAGE: ");
   CONSOLE.println(BAT_SWITCH_OFF_UNDERVOLTAGE);
-  #ifdef GPS_USE_TCP
-    CONSOLE.println("GPS_USE_TCP");
-  #endif
-  #ifdef GPS_SKYTRAQ
-    CONSOLE.println("GPS_USE_SKYTRAQ");  
-  #endif
   CONSOLE.print("REQUIRE_VALID_GPS: ");
   CONSOLE.println(REQUIRE_VALID_GPS);
   CONSOLE.print("GPS_SPEED_DETECTION: ");
@@ -549,10 +286,6 @@ void outputConfig(){
   CONSOLE.println(ALLOW_ROUTE_OUTSIDE_PERI_METER);
   CONSOLE.print("OBSTACLE_DETECTION_ROTATION: ");
   CONSOLE.println(OBSTACLE_DETECTION_ROTATION);
-  CONSOLE.print("KIDNAP_DETECT: ");
-  CONSOLE.println(KIDNAP_DETECT);
-  CONSOLE.print("KIDNAP_DETECT_ALLOWED_PATH_TOLERANCE: ");
-  CONSOLE.println(KIDNAP_DETECT_ALLOWED_PATH_TOLERANCE);
   CONSOLE.print("DOCKING_STATION: ");
   CONSOLE.println(DOCKING_STATION);
   CONSOLE.print("DOCK_IGNORE_GPS: ");
@@ -571,8 +304,6 @@ void outputConfig(){
   CONSOLE.println(STANLEY_CONTROL_K_SLOW);
   CONSOLE.print("BUTTON_CONTROL: ");
   CONSOLE.println(BUTTON_CONTROL);
-  CONSOLE.print("USE_TEMP_SENSOR: ");
-  CONSOLE.println(USE_TEMP_SENSOR);
   #ifdef BUZZER_ENABLE
     CONSOLE.println("BUZZER_ENABLE");    
   #endif
@@ -604,25 +335,8 @@ void start(){
   }  
   
   // give Arduino IDE users some time to open serial console to actually see very first console messages
-  #ifndef __linux__
-    delay(1500);
-  #endif
-    
-  #if defined(ENABLE_SD)
-    #ifdef __linux__
-      bool res = SD.begin();
-    #else 
-      bool res = SD.begin(SDCARD_SS_PIN);
-    #endif    
-    if (res){
-      CONSOLE.println("SD card found!");
-      #if defined(ENABLE_SD_LOG)        
-        sdSerial.beginSD();  
-      #endif
-    } else {
-      CONSOLE.println("no SD card found");                
-    }    
-  #endif 
+ delay(1500);
+  
   
   logResetCause();
   
@@ -635,32 +349,18 @@ void start(){
   String rid = "";
   robotDriver.getRobotID(rid);
   CONSOLE.println(rid);
-  motorDriver.begin();
-  rainDriver.begin();
-  liftDriver.begin();  
+  motorDriver.begin();;  
   battery.begin();      
   stopButton.begin();
 
   bleConfig.run();   
-  //BLE.println(VER); is this needed? can confuse BLE modules if not connected?  
-    
-  rcmodel.begin();  
+      
   motor.begin();
-  sonar.begin();
+
   bumper.begin();
-  lidarBumper.begin();
+ 
 
-  outputConfig();
-
-  if (TOF_ENABLE){
-    tof.setTimeout(500);
-    if (!tof.init())
-    {
-      CONSOLE.println("Failed to detect and initialize tof sensor");
-      delay(1000);
-    }
-    tof.startContinuous(100);
-  }        
+  outputConfig();      
   
   CONSOLE.print("SERIAL_BUFFER_SIZE=");
   CONSOLE.print(SERIAL_BUFFER_SIZE);
@@ -672,23 +372,12 @@ void start(){
   //CONSOLE.println("   for Grand Central M4 'packages/adafruit/hardware/samd/xxxxx/cores/arduino/RingBuffer.h");  
   //CONSOLE.println("change:     #define SERIAL_BUFFER_SIZE 128     into into:     #define SERIAL_BUFFER_SIZE 1024");
   CONSOLE.println("-----------------------------------------------------");
+  watchdogEnable(20000L);  
   
-  #ifdef GPS_USE_TCP
-    gps.begin(gpsClient, GPS_HOST, GPS_PORT);
-  #else 
-    gps.begin(GPS, GPS_BAUDRATE);   
-  #endif
+ 
+  gps.begin(GPS, GPS_BAUDRATE);   
 
   maps.begin();      
-  //maps.clipperTest();
-    
-  // initialize ESP module
-  startWIFI();
-  #ifdef ENABLE_NTRIP
-    ntrip.begin(&gps);  
-  #endif
-  
-  watchdogEnable(15000L);   // 15 seconds  
   
   startIMU(false);        
   
@@ -696,11 +385,6 @@ void start(){
   battery.resetIdle();        
   loadState();
 
-  #ifdef DRV_SIM_ROBOT
-    robotDriver.setSimRobotPosState(stateX, stateY, stateDelta);
-    tester.begin();
-  #endif
-  //Logger.event(EVT_SYSTEM_STARTED);
 }
 
 
@@ -769,60 +453,9 @@ void detectSensorMalfunction(){
   }
 }
 
-// detect lift 
-// returns true, if lift detected, otherwise false
-bool detectLift(){  
-  #ifdef ENABLE_LIFT_DETECTION
-    bool liftTriggered = liftDriver.triggered();  
-    if (LIFT_INVERT) liftTriggered = !liftTriggered;           
-    if (liftTriggered) {
-      CONSOLE.println("LIFT triggered");
-      return true;            
-    }  
-  #endif 
-  return false;
-}
-
-// detect obstacle (bumper, sonar, ToF)
 // returns true, if obstacle detected, otherwise false
 bool detectObstacle(){   
-  if (! ((robotShouldMoveForward()) || (robotShouldRotate())) ) return false;      
-  if (TOF_ENABLE){
-    if (millis() >= nextToFTime){
-      nextToFTime = millis() + 200;
-      int v = tof.readRangeContinuousMillimeters();        
-      if (!tof.timeoutOccurred()) {     
-        tofMeasurements.add(v);        
-        float avg = 0;
-        if (tofMeasurements.getAverage(avg) == tofMeasurements.OK){
-          //CONSOLE.println(avg);
-          if (avg < TOF_OBSTACLE_CM * 10){
-            CONSOLE.println("ToF obstacle!");    
-            statMowToFCounter++;
-            triggerObstacle();                
-            return true; 
-          }
-        }      
-      } 
-    }    
-  }   
-  
-  #ifdef ENABLE_LIFT_DETECTION
-    #ifdef LIFT_OBSTACLE_AVOIDANCE    
-      if ( millis() > linearMotionStartTime + BUMPER_DEADTIME) { 
-        bool liftTriggered = liftDriver.triggered();  
-        if (LIFT_INVERT) liftTriggered = !liftTriggered; 
-        if (liftTriggered)  {
-          CONSOLE.println("lift sensor obstacle!");    
-          Logger.event(EVT_LIFTED_OBSTACLE);
-          //statMowBumperCounter++;
-          statMowLiftCounter++;
-          triggerObstacle();    
-          return true;
-        }
-      }
-    #endif
-  #endif
+  if (! ((robotShouldMoveForward()) || (robotShouldRotate())) ) return false;        
 
   if ( (millis() > linearMotionStartTime + BUMPER_DEADTIME) && (bumper.obstacle()) ){  
     CONSOLE.println("bumper obstacle!");    
@@ -831,23 +464,7 @@ bool detectObstacle(){
     triggerObstacle();    
     return true;
   }
-
-  if ( (millis() > linearMotionStartTime + LIDAR_BUMPER_DEADTIME) && (lidarBumper.obstacle()) ){  
-    CONSOLE.println("LiDAR bumper obstacle!");    
-    Logger.event(EVT_LIDAR_BUMPER_OBSTACLE);
-    statMowBumperCounter++;
-    triggerObstacle();    
-    return true;
-  }
-  
-  if (sonar.obstacle() && (maps.wayMode != WAY_DOCK)){
-    if (SONAR_TRIGGER_OBSTACLES){
-      CONSOLE.println("sonar obstacle!");            
-      statMowSonarCounter++;
-      triggerObstacle();
-      return true;
-    }        
-  }  
+   
   // check if GPS motion (obstacle detection)  
   if ((millis() > nextGPSMotionCheckTime) || (millis() > overallMotionTimeout)) {        
     updateGPSMotionCheckTime();
@@ -929,32 +546,6 @@ bool detectObstacleRotation(){
 // robot main loop
 void run(){  
   
-  #ifdef ENABLE_NTRIP
-    if (millis() > nextGenerateGGATime){
-      nextGenerateGGATime = millis() + 10000;
-      #ifdef NTRIP_SIM_GGA_MESSAGE
-        ntrip.nmeaGGAMessage = NTRIP_SIM_GGA_MESSAGE; 
-        ntrip.nmeaGGAMessageSource = "SIM";
-      #elif NTRIP_APP_GGA_MESSAGE    
-        if (gps.iTOW != 0){
-          // generate NMEA GGA messsage base on base coordinate entered in Sunray App      
-          gps.decodeTOW();
-          ntrip.nmeaGGAMessage = gps.generateGGA(gps.hour, gps.mins, gps.sec, absolutePosSourceLon, absolutePosSourceLat, gps.height); 
-          ntrip.nmeaGGAMessageSource = "SunrayApp";
-        }
-      #elif NTRIP_GPS_GGA_MESSAGE
-        if (gps.nmeaGGAMessage.length() != 0) {
-          ntrip.nmeaGGAMessage = gps.nmeaGGAMessage; // transfer NMEA GGA message to NTRIP client        
-          ntrip.nmeaGGAMessageSource = "GPS";      
-        }    
-      #endif
-    }
-    ntrip.run();      
-  #endif
-
-  #ifdef DRV_SIM_ROBOT
-    tester.run();
-  #endif
   robotDriver.run();
   buzzer.run();
   buzzerDriver.run();
@@ -962,38 +553,14 @@ void run(){
   battery.run();
   batteryDriver.run();
   motorDriver.run();
-  rainDriver.run();
-  liftDriver.run();
   motor.run();
-  sonar.run();
   maps.run();  
-  rcmodel.run();
   bumper.run();
   
   // state saving
   if (millis() >= nextSaveTime){  
     nextSaveTime = millis() + 5000;
     saveState();
-  }
-  
-  // temp
-  if (millis() > nextTempTime){
-    nextTempTime = millis() + 60000;    
-    float batTemp = batteryDriver.getBatteryTemperature();
-    float cpuTemp = robotDriver.getCpuTemperature();    
-    CONSOLE.print("batTemp=");
-    CONSOLE.print(batTemp,0);
-    CONSOLE.print("  cpuTemp=");
-    CONSOLE.print(cpuTemp,0);    
-    //logCPUHealth();
-    CONSOLE.println();    
-    if (batTemp < -999){
-      stateTemp = cpuTemp;
-    } else {
-      stateTemp = batTemp;    
-    }
-    statTempMin = min(statTempMin, stateTemp);
-    statTempMax = max(statTempMax, stateTemp);    
   }
   
   // IMU
@@ -1005,10 +572,6 @@ void run(){
       activeOp->onImuCalibration();             
     } else {
       readIMU();    
-      // LiDAR relocalization
-      if (gps.isRelocalizing){
-        activeOp->onRelocalization();
-      }
     }
   }
 
@@ -1077,23 +640,7 @@ void run(){
     if (battery.underVoltage()){
       activeOp->onBatteryUndervoltage();
     } 
-    else {      
-      if (USE_TEMP_SENSOR){
-        if (stateTemp > DOCK_OVERHEAT_TEMP){
-          activeOp->onTempOutOfRangeTriggered();
-        } 
-        else if (stateTemp < DOCK_TOO_COLD_TEMP){
-          activeOp->onTempOutOfRangeTriggered();
-        }
-      }
-      if (RAIN_ENABLE){
-        // rain sensor should trigger serveral times to robustly detect rain (robust rain detection)
-        // it should not trigger if one rain drop or wet tree leaves touches the sensor  
-        if (rainDriver.triggered()){  
-          //CONSOLE.print("RAIN TRIGGERED ");
-          activeOp->onRainTriggered();                                                                              
-        }                           
-      }    
+    else {         
       if (battery.shouldGoHome()){
         if (DOCKING_STATION){
            activeOp->onBatteryLowShouldDock();
@@ -1106,9 +653,6 @@ void run(){
         }
       }        
     } 
-
-    //CONSOLE.print("active:");
-    //CONSOLE.println(activeOp->name());
     activeOp->checkStop();
     activeOp->run();     
       
@@ -1134,9 +678,6 @@ void run(){
     } else if (stateButton == 12){
       stateButton = 0; // reset button state
       stateSensor = SENS_STOP_BUTTON;
-      #ifdef __linux__
-        WiFi.startWifiProtectedSetup();
-      #endif
     }
 
     // update operation type      
@@ -1163,16 +704,6 @@ void run(){
   loopTimeMax = max(loopTimeNow, loopTimeMax);
   loopTimeMean = 0.99 * loopTimeMean + 0.01 * loopTimeNow; 
   loopTime = millis();
-
-  #ifdef __linux__    
-    if (psOutput == ""){
-      if(loopTimeMax > 500){
-        Process p;
-        p.runShellCommand("ps -eo pcpu,pid,user,args | sort -k 1 -r | head -3");
-        psOutput = p.readString();    
-      }
-    }
-  #endif
 
   if(millis() > loopTimeTimer + 10000){
     if(loopTimeMax > 500){

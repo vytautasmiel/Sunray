@@ -53,67 +53,9 @@ String BLEConfig::exec(String cmd, bool doRetry){
   return res;
 }
 
-void BLEConfig::run(){  
-#ifndef __linux__   
-  CONSOLE.println("probing for HM-10 module (NOTE: will fail for ESP32)...");  
-  int baud;
-  bool found = false;
-  //while (true){    
-    for (int i=0; i < 12; i++){
-      switch(i){
-        /*case 0: baud=1200; break;  
-        case 1: baud=2400; break;  
-        case 2: baud=4800; break;  */
-        case 3: baud=9600; break;  
-        //case 4: baud=19200; break;  
-        //case 5: baud=38400; break;  
-        //case 6: baud=57600; break;  
-        case 7: baud=115200; break;  
-        /*case 8: baud=230400; break;  
-        case 9: baud=460800; break;  
-        case 10: baud=921600; break;  
-        case 11: baud=1382400; break;  */
-        default: continue;
-      }
-      CONSOLE.print("trying to detect Bluetooth 4.0/BLE (HM-10 module) (make sure your phone is NOT connected)");
-      CONSOLE.print(baud);
-      CONSOLE.println("...");
-      BLE.begin(baud);    
-      //BLE.flush();
-      String res = exec("AT\r\n", false);
-      if (res.indexOf("OK") != -1){
-        CONSOLE.println("Bluetooth 4.0/BLE (HM-10) module found!");
-        if (baud == BLE_BAUDRATE) {
-          found = true;
-          break;
-        } else {
-          exec("AT+BAUD8\r\n", true);
-          BLE.begin(BLE_BAUDRATE);
-          found = true;
-          break;
-        }
-      }
-    }
-
-    if (found) {
-      //exec("AT+RENEW\r\n", true);   // apply factory settings      
-      exec("AT+VERSION\r\n", true);   // get firmware version
-      //exec("AT+LADDR\r\n", true);   // print MAC address
-      //exec("AT+CHAR\r\n", true);    // print UUIDs
-#if defined(BLE_NAME)      
-      exec("AT+NAME" BLE_NAME "\r\n", true);
-#endif
-      //exec("AT+TYPE2\r\n", true);                        
-      //exec("AT+PASS111111\r\n", true);                  
-      //exec("AT+HELP\r\n", true);                        
-      exec("AT+RESET\r\n", true);  // apply new settings and reboot module
-      return;
-    } else {
-      CONSOLE.println("error: no BLE module found!");
-    }
-    //delay(1000);
-  //}
-#endif
+void BLEConfig::run(){   
+  BLE.begin(BLE_BAUDRATE);    
+  return;
 }
 
 

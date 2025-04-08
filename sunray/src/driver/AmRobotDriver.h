@@ -10,11 +10,6 @@
 
 #include <Arduino.h>
 #include "RobotDriver.h"
-#include "../../SparkFunHTU21D.h"
-
-
-#ifndef __linux__
-
 
 // struct DriverChip defines logic levels how a motor driver works:
 // example logic:
@@ -67,7 +62,6 @@ class AmMotorDriver: public MotorDriver {
     AmMotorDriver();
     void begin() override;
     void run() override;
-    void setMowHeight(int mowHeightMillimeter) override;
     void setMotorPwm(int leftPwm, int rightPwm, int mowPwm) override;
     void getMotorFaults(bool &leftFault, bool &rightFault, bool &mowFault) override;
     void resetMotorFaults()  override;
@@ -84,8 +78,6 @@ class AmMotorDriver: public MotorDriver {
     DriverChip DRV8308;
     DriverChip A4931;
     DriverChip BLDC8015A;
-    DriverChip JYQD;
-    DriverChip OWL;
     DriverChip CUSTOM;
     DriverChip mowDriverChip;
     DriverChip gearsDriverChip;
@@ -93,8 +85,7 @@ class AmMotorDriver: public MotorDriver {
 };
 
 class AmBatteryDriver : public BatteryDriver {
-  public:    
-    HTU21D myHumidity;    
+  public:       
     void begin() override;
     void run() override;
     
@@ -104,7 +95,6 @@ class AmBatteryDriver : public BatteryDriver {
     float getChargeVoltage() override;
     // read charge current
     float getChargeCurrent() override;    
-    float getBatteryTemperature() override;
     // enable battery charging
     virtual void enableCharging(bool flag) override;
     // keep system on or power-off
@@ -138,26 +128,6 @@ class AmStopButtonDriver: public StopButtonDriver {
     bool pressed;  	  		    
 };
 
-class AmRainSensorDriver: public RainSensorDriver {
-  public:    
-    void begin() override;
-    void run() override;
-    bool triggered() override;
-  protected:
-    unsigned long nextControlTime;
-    bool isRaining;  	  		    
-};
-
-class AmLiftSensorDriver: public LiftSensorDriver {
-  public:    
-    void begin() override;
-    void run() override;
-    bool triggered() override;
-  protected:
-    unsigned long nextControlTime;
-    bool isLifted;  	  		    
-};
-
 class AmBuzzerDriver: public BuzzerDriver {
   public:    
     void begin() override;
@@ -166,6 +136,5 @@ class AmBuzzerDriver: public BuzzerDriver {
     void tone(int freq) override;
 };
 
-#endif
 
 #endif

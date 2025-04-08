@@ -30,10 +30,7 @@ class RobotDriver {
 class MotorDriver {
   public:    
     virtual void begin() = 0;
-    virtual void run() = 0;
-
-    // set mowing height in millimeters
-    virtual void setMowHeight(int mowHeightMillimeter) = 0;        
+    virtual void run() = 0;       
     // set pwm (0-255), positive: forward, negative: backwards
     virtual void setMotorPwm(int leftPwm, int rightPwm, int mowPwm) = 0;
     // get motor faults
@@ -55,8 +52,6 @@ class BatteryDriver {
     
     // read battery voltage
     virtual float getBatteryVoltage() = 0;
-    // read battery temperature (degC) 
-    virtual float getBatteryTemperature() = 0;
     // read charge voltage
     virtual float getChargeVoltage() = 0;
     // read charge current (amps)
@@ -87,19 +82,6 @@ class StopButtonDriver {
     virtual bool triggered() = 0;  	  		    
 };
 
-class LiftSensorDriver {
-  public:    
-    virtual void begin() = 0;
-    virtual void run() = 0;
-    virtual bool triggered() = 0;  	  		    
-};
-
-class RainSensorDriver {
-  public:    
-    virtual void begin() = 0;
-    virtual void run() = 0;
-    virtual bool triggered() = 0;  	  		    
-};
 
 class ImuDriver {
   public:
@@ -132,7 +114,6 @@ class BuzzerDriver {
 
 class GpsDriver {
   public:
-    bool isRelocalizing = false;  // should robot wait for localization device until it gets its position?
     unsigned long iTOW; //  An interval time of week (ITOW), ms since Saturday/Sunday transition
     int numSV;         // #signals tracked 
     int numSVdgps;     // #signals tracked with DGPS signal

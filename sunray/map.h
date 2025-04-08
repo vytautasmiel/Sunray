@@ -8,7 +8,6 @@
 #define SUNRAY_MAP_H
 
 #include <Arduino.h>
-#include <SD.h>
 
 
 // waypoint type
@@ -29,8 +28,6 @@ class Point
     void setXY(float ax, float ay); // meter
     void assign(Point &fromPoint); 
     long crc();
-    bool read(File &file);
-    bool write(File &file);
 };
 
 // a closed loop of points
@@ -48,8 +45,6 @@ class Polygon
     void dump();
     long crc();
     void getCenter(Point &pt);
-    bool read(File &file);
-    bool write(File &file);
 };
 
 // a list of polygons
@@ -67,8 +62,6 @@ class PolygonList // owns polygons!
      void dump();
      int numPoints();
      long crc();
-     bool read(File &file);
-     bool write(File &file);
 };
 
 class Node   // nodes just hold references to points and other nodes
@@ -148,7 +141,6 @@ class Map
     PolygonList obstacles;     
     PolygonList pathFinderObstacles;
     NodeList pathFinderNodes;
-    File mapFile;
     int exclusionPointsCount;        
            
     bool shouldDock;  // start docking?

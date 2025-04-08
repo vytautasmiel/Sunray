@@ -6,30 +6,21 @@
 #include "Stats.h"
 #include "src/op/op.h"
 #include "reset.h"
-#include "mqtt.h"
-#include "httpserver.h"
+
 #include "ble.h"
 #include "events.h"
 
-#ifdef __linux__
-  #include <BridgeClient.h>
-  #include <Process.h>
-  #include <WiFi.h>
-  #include <sys/resource.h>
-#else
-  #include "src/esp/WiFiEsp.h"
-#endif
 #include "timetable.h"
 #include "Storage.h"
 
 
-//#define VERBOSE 1
+#define VERBOSE 1
 
 unsigned long nextInfoTime = 0;
 bool triggerWatchdog = false;
 
 int encryptMode = 0; // 0=off, 1=encrypt
-int encryptPass = PASS; 
+// int encryptPass = PASS; 
 int encryptChallenge = 0;
 int encryptKey = 0;
 
@@ -46,7 +37,7 @@ float statMaxControlCycleTime = 0;
 // answer Bluetooth with CRC
 void cmdAnswer(String s){  
   byte crc = 0;
-  for (int i=0; i < s.length(); i++) crc += s[i];
+  for (unsigned int i=0; i < s.length(); i++) crc += s[i];
   s += F(",0x");
   if (crc <= 0xF) s += F("0");
   s += String(crc, HEX);  
@@ -159,12 +150,10 @@ void cmdControl(){
             maps.skipNextMowingPoint();
             restartRobot = true;
           }
-      } else if (counter == 8){
-          if (intValue >= 0) sonar.enabled = (intValue == 1);
       } else if (counter == 9){
           if (intValue >= 0) motor.setMowMaxPwm(intValue);
       } else if (counter == 10){
-          if (intValue >= 0) motor.setMowHeightMillimeter(intValue);
+          if (intValue >= 0) ;
       }
       counter++;
       lastCommaIdx = idx;
@@ -453,26 +442,12 @@ void cmdVersion(){
   s += encryptChallenge;
   s += F(",");
   String board(BOARD);
-  #ifdef __linux__
-    Process p;
-    board = "Linux";
-    // returns: Sinovoip_Bananapi_M4, Raspberry Pi 5, etc.
-    p.runShellCommand("cat /sys/firmware/devicetree/base/model 2>/dev/null");        
-	  String boardAdd = p.readString();    
-    if (boardAdd != "") board += " " + boardAdd;
-    //board += getCPUArchitecture();
-  #endif
+
   s += board;
   s += F(",");
-  #ifdef DRV_SERIAL_ROBOT
-    s += "SR";
-  #elif DRV_CAN_ROBOT
-    s += "CR";
-  #elif DRV_ARDUMOWER
+ 
     s += "AM";
-  #else 
-    s += "XX";
-  #endif
+ 
   String id = "";
   String mcuFwName = "";
   String mcuFwVer = ""; 
@@ -500,13 +475,6 @@ void cmdObstacle(){
   triggerObstacle();  
 }
 
-// request rain
-void cmdRain(){
-  String s = F("O2");
-  cmdAnswer(s);  
-  activeOp->onRainTriggered();  
-}
-
 // request battery low
 void cmdBatteryLow(){
   String s = F("O3");
@@ -526,13 +494,9 @@ void cmdTriggerWatchdog(){
   String s = F("Y");
   cmdAnswer(s);  
   setOperation(OP_IDLE);
-  #ifdef __linux__
-    Logger.event(EVT_SYSTEM_RESTARTING);
-    Process p;
-    p.runShellCommand("sleep 3; reboot");    
-  #else
+
     triggerWatchdog = true;  
-  #endif
+
 }
 
 // perform hang test (watchdog should trigger)
@@ -551,15 +515,6 @@ void cmdSwitchOffRobot(){
   setOperation(OP_IDLE);
   Logger.event(EVT_SYSTEM_SHUTTING_DOWN);
   battery.switchOff();
-}
-
-// kidnap test (kidnap detection should trigger)
-void cmdKidnap(){
-  String s = F("K");
-  cmdAnswer(s);  
-  CONSOLE.println("kidnapping robot - kidnap detection should trigger");
-  stateX = 0;  
-  stateY = 0;
 }
 
 // toggle GPS solution (invalid,float,fix) for testing
@@ -772,49 +727,14 @@ void cmdClearStats(){
 void cmdWiFiScan(){
   CONSOLE.println("cmdWiFiScan");
   String s = F("B1,");  
-  #ifdef __linux__    
-  int numNetworks = WiFi.scanNetworks();
-  CONSOLE.print("numNetworks=");
-  CONSOLE.println(numNetworks);
-  for (int i=0; i < numNetworks; i++){
-      CONSOLE.println(WiFi.SSID(i));
-      s += WiFi.SSID(i);
-      if (i < numNetworks-1) s += ",";
-  }
-  #endif  
+  
   cmdAnswer(s);
 }
 
 // setup WiFi
 void cmdWiFiSetup(){
   CONSOLE.println("cmdWiFiSetup");
-  #ifdef __linux__
-    if (cmd.length()<6) return;  
-    int counter = 0;
-    int lastCommaIdx = 0;    
-    String ssid = "";
-    String pass = "";
-    for (int idx=0; idx < cmd.length(); idx++){
-      char ch = cmd[idx];
-      //Serial.print("ch=");
-      //Serial.println(ch);
-      if ((ch == ',') || (idx == cmd.length()-1)){
-        String str = cmd.substring(lastCommaIdx+1, ch==',' ? idx : idx+1);
-        if (counter == 1){                            
-            ssid = str;
-        } else if (counter == 2){
-            pass = str;
-        } 
-        counter++;
-        lastCommaIdx = idx;
-      }    
-    }      
-    /*CONSOLE.print("ssid=");
-    CONSOLE.print(ssid);
-    CONSOLE.print(" pass=");
-    CONSOLE.println(pass);*/
-    WiFi.begin((char*)ssid.c_str(), (char*)pass.c_str());    
-  #endif
+  
   String s = F("B2");
   cmdAnswer(s);
 }
@@ -822,16 +742,7 @@ void cmdWiFiSetup(){
 // request WiFi status
 void cmdWiFiStatus(){
   String s = F("B3,");  
-  #ifdef __linux__
-  IPAddress addr = WiFi.localIP();
-	s += addr[0];
-	s += ".";
-	s += addr[1];
-	s += ".";
-	s += addr[2];
-	s += ".";
-	s += addr[3];		
-  #endif  
+  
   cmdAnswer(s);
 }
 
@@ -839,27 +750,7 @@ void cmdWiFiStatus(){
 // request firmware update
 void cmdFirmwareUpdate(){
   String s = F("U1");  
-  #ifdef __linux__
-    if (cmd.length()<6) return;  
-    int counter = 0;
-    int lastCommaIdx = 0;    
-    String fileURL = "";
-    for (int idx=0; idx < cmd.length(); idx++){
-      char ch = cmd[idx];
-      if ((ch == ',') || (idx == cmd.length()-1)){
-        String str = cmd.substring(lastCommaIdx+1, ch==',' ? idx : idx+1);
-        if (counter == 1){                            
-            fileURL = str;
-        } 
-        counter++;
-        lastCommaIdx = idx;
-      }    
-    }          
-    CONSOLE.print("applying firmware update: ");
-    CONSOLE.println(fileURL);
-    Process p;
-    p.runShellCommand("/home/pi/sunray_install/update.sh --apply --url " + fileURL + " &");
-  #endif  
+  
   cmdAnswer(s);
 }
 
@@ -949,7 +840,7 @@ void processCmd(bool checkCrc, bool decrypt){
     if (cmd.length() <= 4){
       cmdObstacle();   // for developers
     } else {
-      if (cmd[4] == '2') cmdRain();   // for developers
+      if (cmd[4] == '2') ;   // for developers
       if (cmd[4] == '3') cmdBatteryLow();   // for developers
     }    
   }   
@@ -963,7 +854,6 @@ void processCmd(bool checkCrc, bool decrypt){
     if ((cmd.length() > 4) && (cmd[4] == '1')) cmdFirmwareUpdate();
   }
   if (cmd[3] == 'G') cmdToggleGPSSolution();   // for developers
-  if (cmd[3] == 'K') cmdKidnap();   // for developers
   if (cmd[3] == 'Z') cmdStressTest();   // for developers
   if (cmd[3] == 'Y') {
     if (cmd.length() <= 4){
@@ -1001,11 +891,6 @@ void processConsole(){
 void processComm(){
   processConsole();     
   processBLE();     
-  if (!bleConnected){
-    processWifiAppServer();
-    processWifiRelayClient();
-    processWifiMqttClient();
-  }
   if (triggerWatchdog) {
     CONSOLE.println("hang test - watchdog should trigger and perform a reset");
     while (true){
@@ -1044,24 +929,13 @@ void outputConsole(){
     CONSOLE.print (" op=");    
     CONSOLE.print(activeOp->OpChain);
     //CONSOLE.print (stateOp);
-    #ifdef __linux__
-      CONSOLE.print (" mem=");
-      struct rusage r_usage;
-      getrusage(RUSAGE_SELF,&r_usage);
-      CONSOLE.print(r_usage.ru_maxrss);
-      #ifdef __arm__
-        CONSOLE.print(" sp=");
-        uint64_t spReg;
-        asm( "mov %0, %%sp" : "=rm" ( spReg ));
-        CONSOLE.print ( ((uint32_t)spReg), HEX);
-      #endif
-    #else
+    
       CONSOLE.print (" freem=");
       CONSOLE.print (freeMemory());  
       uint32_t *spReg = (uint32_t*)__get_MSP();   // stack pointer
       CONSOLE.print (" sp=");
       CONSOLE.print (*spReg, HEX);
-    #endif
+
     CONSOLE.print(" bat=");
     CONSOLE.print(battery.batteryVoltage);
     CONSOLE.print(",");

@@ -4,7 +4,7 @@
 // or Grau GmbH Commercial License for commercial use (http://grauonline.de/cms2/?page_id=153)
 
 
-#ifndef __linux__
+
 
 #include "AmRobotDriver.h"
 #include "../../config.h"
@@ -144,11 +144,7 @@ void OdometryRightISR(){
     motorRightTicksTimeout = millis() + 1;
   #endif
   odomTicksRight++;        
-  
-  #ifdef TEST_PIN_ODOMETRY
-    testValue = !testValue;
-    digitalWrite(pinKeyArea2, testValue);  
-  #endif
+
 }
 
 
@@ -175,102 +171,6 @@ AmMotorDriver::AmMotorDriver(){
   MC33926.adcVoltToAmpScale = 1.905 * 2; // ADC voltage to amp for 2 drivers connected in parallel
   MC33926.adcVoltToAmpPow = 1.0;
 
-  // DRV8308 (https://www.ti.com/lit/ds/symlink/drv8308.pdf) - PwmFreqMax=30 khz
-  DRV8308.driverName = "DRV8308";
-  DRV8308.forwardPwmInvert = false;
-  DRV8308.forwardDirLevel = LOW;
-  DRV8308.reversePwmInvert = false;
-  DRV8308.reverseDirLevel = HIGH;
-  DRV8308.usePwmRamp = false;
-  DRV8308.faultActive = LOW;
-  DRV8308.resetFaultByToggleEnable = true;
-  DRV8308.enableActive = LOW;
-  DRV8308.disableAtPwmZeroSpeed=false;
-  DRV8308.keepPwmZeroSpeed = false; // never go to zero PWM (driver requires a periodic signal)  
-  DRV8308.minPwmSpeed = 2;
-  DRV8308.maxPwmSpeed = 255;
-  DRV8308.pwmFreq = PWM_FREQ_29300;
-  DRV8308.adcVoltToAmpOfs = -1.65;   // brushless-adapter: 0A=1.65V, resolution 132mV/A 
-  DRV8308.adcVoltToAmpScale = 7.57; 
-  DRV8308.adcVoltToAmpPow = 1.0; 
-
-  // A4931 (https://www.allegromicro.com/en/Products/Motor-Driver-And-Interface-ICs/Brushless-DC-Motor-Drivers/~/media/Files/Datasheets/A4931-Datasheet.ashx) - PwmFreqMax=30 kHz
-  // alternatives: MS4931 (https://datasheet.lcsc.com/lcsc/1809131539_Hangzhou-Ruimeng-Tech-MS4931_C231944.pdf)
-  A4931.driverName = "A4931";
-  A4931.forwardPwmInvert = false;
-  A4931.forwardDirLevel = HIGH;
-  A4931.reversePwmInvert = false;
-  A4931.reverseDirLevel = LOW;
-  A4931.usePwmRamp = false;
-  A4931.faultActive = LOW;
-  A4931.resetFaultByToggleEnable = false;
-  A4931.enableActive = LOW;  // 'enable' actually is driver brake
-  A4931.disableAtPwmZeroSpeed=false;
-  A4931.keepPwmZeroSpeed = true;  
-  A4931.minPwmSpeed = 0;    
-  A4931.maxPwmSpeed = 255;    
-  A4931.pwmFreq = PWM_FREQ_29300;   
-  A4931.adcVoltToAmpOfs = -1.65;    // brushless-adapter: 0A=1.65V, resolution 132mV/A
-  A4931.adcVoltToAmpScale = 7.57;
-  A4931.adcVoltToAmpPow = 1.0; 
-
-  // ACT-8015A brushless driver 
-  BLDC8015A.driverName = "BLDC8015A";    // just a name for your driver
-  BLDC8015A.forwardPwmInvert = false; // invert PWM signal for forward? (false or true)
-  BLDC8015A.forwardDirLevel = LOW;    // logic level for forward (LOW or HIGH)
-  BLDC8015A.reversePwmInvert = false; // invert PWM signal for reverse? (false or true)
-  BLDC8015A.reverseDirLevel = HIGH;   // logic level for reverse (LOW or HIGH)
-  BLDC8015A.usePwmRamp = false;       // use a ramp to get to PWM value?    
-  BLDC8015A.faultActive = LOW;        // fault active level (LOW or HIGH)
-  BLDC8015A.resetFaultByToggleEnable = false; // reset a fault by toggling enable? 
-  BLDC8015A.enableActive = HIGH;       // enable active level (LOW or HIGH)
-  BLDC8015A.disableAtPwmZeroSpeed = false;  // disable driver at PWM zero speed? (brake function)
-  BLDC8015A.keepPwmZeroSpeed = true;  // keep PWM zero value (disregard minPwmSpeed at zero speed)?
-  BLDC8015A.minPwmSpeed = 0;          // minimum PWM speed your driver can operate
-  BLDC8015A.maxPwmSpeed = 255;            
-  BLDC8015A.pwmFreq = PWM_FREQ_29300;  // choose between PWM_FREQ_3900 and PWM_FREQ_29300 here   
-  BLDC8015A.adcVoltToAmpOfs = -1.65;      // ADC voltage to amps (offset)    // brushless-adapter: 0A=1.65V, resolution 132mV/A  
-  BLDC8015A.adcVoltToAmpScale = 7.57; // ADC voltage to amps (scale)
-  BLDC8015A.adcVoltToAmpPow = 1.0;    // ADC voltage to amps (power of number)
-
-  // JYQD brushless driver 
-  JYQD.driverName = "JYQD";    // just a name for your driver
-  JYQD.forwardPwmInvert = false; // invert PWM signal for forward? (false or true)
-  JYQD.forwardDirLevel = LOW;    // logic level for forward (LOW or HIGH)
-  JYQD.reversePwmInvert = false; // invert PWM signal for reverse? (false or true)
-  JYQD.reverseDirLevel = HIGH;   // logic level for reverse (LOW or HIGH)
-  JYQD.usePwmRamp = false;       // use a ramp to get to PWM value?    
-  JYQD.faultActive = LOW;        // fault active level (LOW or HIGH)
-  JYQD.resetFaultByToggleEnable = true; // reset a fault by toggling enable? 
-  JYQD.enableActive = HIGH;       // enable active level (LOW or HIGH)
-  JYQD.disableAtPwmZeroSpeed = false;  // disable driver at PWM zero speed? (brake function)
-  JYQD.keepPwmZeroSpeed = false;  // keep PWM zero value (disregard minPwmSpeed at zero speed)?
-  JYQD.minPwmSpeed = 0;          // minimum PWM speed your driver can operate
-  JYQD.maxPwmSpeed = 255;            
-  JYQD.pwmFreq = PWM_FREQ_3900;  // choose between PWM_FREQ_3900 and PWM_FREQ_29300 here   
-  JYQD.adcVoltToAmpOfs = -1.65;      // ADC voltage to amps (offset)   // brushless-adapter: 0A=1.65V, resolution 132mV/A
-  JYQD.adcVoltToAmpScale = 7.57; // ADC voltage to amps (scale)
-  JYQD.adcVoltToAmpPow = 1.0;    // ADC voltage to amps (power of number)
-
-  // owlDrive 
-  OWL.driverName = "owlDrive";    // just a name for your driver
-  OWL.forwardPwmInvert = false; // invert PWM signal for forward? (false or true)
-  OWL.forwardDirLevel = LOW;    // logic level for forward (LOW or HIGH)
-  OWL.reversePwmInvert = false; // invert PWM signal for reverse? (false or true)
-  OWL.reverseDirLevel = HIGH;   // logic level for reverse (LOW or HIGH)
-  OWL.usePwmRamp = false;       // use a ramp to get to PWM value?    
-  OWL.faultActive = LOW;        // fault active level (LOW or HIGH)
-  OWL.resetFaultByToggleEnable = false; // reset a fault by toggling enable? 
-  OWL.enableActive = LOW;       // enable active level (LOW or HIGH)
-  OWL.disableAtPwmZeroSpeed=false;  // disable driver at PWM zero speed? (brake function)
-  OWL.keepPwmZeroSpeed = false;  // keep PWM zero value (disregard minPwmSpeed at zero speed)?
-  OWL.minPwmSpeed = 0;          // minimum PWM speed your driver can operate
-  OWL.maxPwmSpeed = 255;          
-  OWL.pwmFreq = PWM_FREQ_29300;  // choose between PWM_FREQ_3900 and PWM_FREQ_29300 here   
-  OWL.adcVoltToAmpOfs = -1.65;      // ADC voltage to amps (offset)        // brushless-adapter: 0A=1.65V, resolution 132mV/A
-  OWL.adcVoltToAmpScale = 7.57; // ADC voltage to amps (scale)
-  OWL.adcVoltToAmpPow = 1.0;    // ADC voltage to amps (power of number)
-
   // your custom brushed/brushless driver (ACT-8015A, JYQD_V7.3E3, etc.)
   CUSTOM.driverName = "CUSTOM";    // just a name for your driver
   CUSTOM.forwardPwmInvert = false; // invert PWM signal for forward? (false or true)
@@ -294,50 +194,11 @@ AmMotorDriver::AmMotorDriver(){
 
 void AmMotorDriver::begin(){      
 
-  #ifdef MOTOR_DRIVER_BRUSHLESS    
-    CONSOLE.println("MOTOR_DRIVER_BRUSHLESS: yes");    
 
-    // All motors (gears, mow) are assigned individual motor drivers here.
-    // NOTE: you can adjust/override default motor driver parameters here if required for a certain motor!
-    // example: mowDriverChip.minPwmSpeed = 40; 
-
-    #ifdef MOTOR_DRIVER_BRUSHLESS_MOW_DRV8308  
-      mowDriverChip = DRV8308;
-    #elif MOTOR_DRIVER_BRUSHLESS_MOW_A4931 
-      mowDriverChip = A4931;
-      mowDriverChip.minPwmSpeed = 40;
-      mowDriverChip.keepPwmZeroSpeed = true;
-      mowDriverChip.disableAtPwmZeroSpeed = true;  
-      mowDriverChip.usePwmRamp = false;
-    #elif MOTOR_DRIVER_BRUSHLESS_MOW_BLDC8015A 
-      mowDriverChip = BLDC8015A;    
-    #elif MOTOR_DRIVER_BRUSHLESS_MOW_JYQD
-      mowDriverChip = JYQD;
-    #elif MOTOR_DRIVER_BRUSHLESS_MOW_OWL
-      mowDriverChip = OWL;
-    #else 
-      mowDriverChip = CUSTOM;
-    #endif
-    
-    #ifdef MOTOR_DRIVER_BRUSHLESS_GEARS_DRV8308  
-      gearsDriverChip = DRV8308;                         
-    #elif MOTOR_DRIVER_BRUSHLESS_GEARS_A4931 
-      gearsDriverChip = A4931;
-    #elif MOTOR_DRIVER_BRUSHLESS_GEARS_BLDC8015A
-      gearsDriverChip = BLDC8015A;    
-    #elif MOTOR_DRIVER_BRUSHLESS_GEARS_JYQD
-      gearsDriverChip = JYQD;
-    #elif MOTOR_DRIVER_BRUSHLESS_GEARS_OWL
-      gearsDriverChip = OWL;
-    #else 
-      gearsDriverChip = CUSTOM;
-    #endif
-
-  #else 
     CONSOLE.println("MOTOR_DRIVER_BRUSHLESS: no");    
     mowDriverChip = MC33926;
     gearsDriverChip = MC33926;
-  #endif
+
 
 
   // left wheel motor
@@ -366,12 +227,11 @@ void AmMotorDriver::begin(){
 
   // odometry
   pinMode(pinOdometryLeft, INPUT_PULLUP);
-  //pinMode(pinOdometryLeft2, INPUT_PULLUP);
-  pinMode(pinOdometryRight, INPUT_PULLUP);
-  //pinMode(pinOdometryRight2, INPUT_PULLUP);
 
-  // lift sensor
-  pinMode(pinLift, INPUT_PULLUP);
+  pinMode(pinOdometryRight, INPUT_PULLUP);
+
+
+
 
   // enable interrupts
   attachInterrupt(pinOdometryLeft, OdometryLeftISR, CHANGE);  
@@ -388,11 +248,6 @@ void AmMotorDriver::begin(){
 
 void AmMotorDriver::run(){
 }
-
-
-void AmMotorDriver::setMowHeight(int mowHeightMillimeter){
-}
-
 
 // brushed/brushless motor driver
 //(8-bit PWM=255, 10-bit PWM=1023)
@@ -415,13 +270,7 @@ void AmMotorDriver::setMotorDriver(int pinDir, int pinPWM, int speed, DriverChip
   }
 
   if (reverse) {  
-    //CONSOLE.print("reverse ");
-    //CONSOLE.print(pinDir);
-    //CONSOLE.print(",");
-    //CONSOLE.print(pinPWM);
-    //CONSOLE.print(",");
-    //CONSOLE.println(speed);    
-    // reverse
+
     digitalWrite(pinDir, chip.reverseDirLevel) ;
     if (chip.reversePwmInvert) 
       pinMan.analogWrite(pinPWM, 255 - ((byte)abs(speed)), chip.pwmFreq);  // nPWM (inverted pwm)
@@ -429,13 +278,7 @@ void AmMotorDriver::setMotorDriver(int pinDir, int pinPWM, int speed, DriverChip
       pinMan.analogWrite(pinPWM, ((byte)abs(speed)), chip.pwmFreq);       // PWM
 
   } else {
-    //CONSOLE.print("forward ");
-    //CONSOLE.print(pinDir);
-    //CONSOLE.print(",");
-    //CONSOLE.print(pinPWM);
-    //CONSOLE.print(",");
-    //CONSOLE.println(speed);    
-    // forward
+
     digitalWrite(pinDir, chip.forwardDirLevel) ;
     if (chip.forwardPwmInvert) 
       pinMan.analogWrite(pinPWM, 255 - ((byte)abs(speed)), chip.pwmFreq);  // nPWM (inverted pwm)
@@ -598,7 +441,6 @@ void AmBatteryDriver::begin(){
   pinMode(pinBatteryVoltage, INPUT);
   pinMode(pinChargeVoltage, INPUT);
   pinMode(pinChargeCurrent, INPUT);  
-  myHumidity.begin();      
 }
 
 
@@ -620,16 +462,6 @@ float AmBatteryDriver::getChargeVoltage(){
 float AmBatteryDriver::getChargeCurrent(){    
   float amps = ((float)ADC2voltage(analogRead(pinChargeCurrent))) * currentFactor;    
 	return amps;
-}
-
-float AmBatteryDriver::getBatteryTemperature(){
-  #ifdef USE_TEMP_SENSOR
-    // https://learn.sparkfun.com/tutorials/htu21d-humidity-sensor-hookup-guide
-    return(myHumidity.readTemperature());
-    //float humidity = myHumidity.readHumidity();                  
-  #else
-    return 0;
-  #endif
 }
 
 void AmBatteryDriver::enableCharging(bool flag){
@@ -704,47 +536,6 @@ bool AmStopButtonDriver::triggered(){
 }
 
 
-// ------------------------------------------------------------------------------------
-
-
-void AmRainSensorDriver::begin(){
-  nextControlTime = 0;
-  isRaining = false;  
-  pinMode(pinRain, INPUT);
-}
-
-void AmRainSensorDriver::run(){
-  unsigned long t = millis();
-  if (t < nextControlTime) return;
-  nextControlTime = t + 100;                                       // save CPU resources by running at 10 Hz
-  isRaining = (digitalRead(pinRain)== LOW);
-}
-
-bool AmRainSensorDriver::triggered(){
-  return isRaining;
-}
-
-// ------------------------------------------------------------------------------------
-
-
-void AmLiftSensorDriver::begin(){
-  nextControlTime = 0;
-  isLifted = false;  
-}
-
-void AmLiftSensorDriver::run(){
-  unsigned long t = millis();
-  if (t < nextControlTime) return;
-  nextControlTime = t + 100;                                       // save CPU resources by running at 10 Hz
-  isLifted = (digitalRead(pinLift)== LOW);
-}
-
-bool AmLiftSensorDriver::triggered(){
-  return isLifted;
-}
-
-// ------------------------------------------------------------------------------------
-
 void AmBuzzerDriver::begin(){  
   pinMode(pinBuzzer, OUTPUT);                
   digitalWrite(pinBuzzer, LOW);
@@ -791,6 +582,3 @@ void AmBuzzerDriver::tone(int freq){
     zerotimer.enable(true);
   #endif     
 }
-
-#endif  // #ifndef __linux__
-

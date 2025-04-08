@@ -59,13 +59,9 @@ class Op {
     // op exit code
     virtual void end();        
     // --------- events --------------------------------------
-    virtual void onImuCalibration();
-    virtual void onRelocalization();    
+    virtual void onImuCalibration();   
     virtual void onGpsNoSignal();
     virtual void onGpsFixTimeout();
-    virtual void onRainTriggered();
-    virtual void onTempOutOfRangeTriggered();
-    virtual void onLiftTriggered();
     virtual void onOdometryError();
     virtual void onMotorOverload();
     virtual void onMotorError();
@@ -73,7 +69,6 @@ class Op {
     virtual void onObstacleRotation();
     virtual void onNoFurtherWaypoints();    
     virtual void onTargetReached();
-    virtual void onKidnapped(bool state);
     virtual void onBatteryUndervoltage();
     virtual void onBatteryLowShouldDock();  
     virtual void onTimetableStopMowing();
@@ -82,7 +77,6 @@ class Op {
     virtual void onBadChargingContactDetected();    
     virtual void onChargerConnected();    
     virtual void onChargingCompleted();              
-    virtual void onImuTilt();
     virtual void onImuError();
     virtual float getDockDistance();
 };
@@ -109,18 +103,6 @@ class ImuCalibrationOp: public Op {
     virtual void run() override;
 };
 
-// relocalization op
-class RelocalizationOp: public Op {
-  public:        
-    unsigned long nextRelocalizationSecond;
-    int relocalizationSeconds;
-    virtual String name() override;
-    virtual void changeOp(Op &anOp, bool returnBackOnExit = false) override;
-    virtual void begin() override;
-    virtual void end() override;
-    virtual void run() override;
-};
-
 // mowing op (optionally, also undocking dock points)
 class MowOp: public Op {
   public:
@@ -135,26 +117,20 @@ class MowOp: public Op {
     virtual void onGpsFixTimeout() override;
     virtual void onOdometryError() override;
     virtual void onMotorOverload() override; 
-    virtual void onMotorError() override;
-    virtual void onRainTriggered() override;
-    virtual void onTempOutOfRangeTriggered() override;    
+    virtual void onMotorError() override;  
     virtual void onBatteryLowShouldDock() override;
     virtual void onTimetableStartMowing() override;    
     virtual void onTimetableStopMowing() override;    
     virtual void onObstacle() override;
     virtual void onObstacleRotation() override;
-    virtual void onTargetReached() override;    
-    virtual void onKidnapped(bool state) override;   
+    virtual void onTargetReached() override;     
     virtual void onNoFurtherWaypoints() override;     
-    virtual void onImuTilt() override;
     virtual void onImuError() override;
 };
 
 // dock op (driving to first dock point and following dock points until charging point)
 class DockOp: public Op {
   public:        
-    bool dockReasonRainTriggered;
-    unsigned long dockReasonRainAutoStartTime;
     bool lastMapRoutingFailed;
     int mapRoutingFailedCounter;
     DockOp();
@@ -168,7 +144,6 @@ class DockOp: public Op {
     virtual void onGpsFixTimeout() override;
     virtual void onNoFurtherWaypoints() override;              
     virtual void onGpsNoSignal() override;
-    virtual void onKidnapped(bool state) override;
     virtual void onChargerConnected() override;   
 };
 
@@ -187,8 +162,7 @@ class ChargeOp: public Op {
     virtual void run() override;
     virtual void onChargerDisconnected() override;
     virtual void onBadChargingContactDetected() override;
-    virtual void onBatteryUndervoltage() override;    
-    virtual void onRainTriggered() override;   
+    virtual void onBatteryUndervoltage() override;      
     virtual void onChargerConnected() override; 
     virtual void onTimetableStartMowing() override;    
     virtual void onTimetableStopMowing() override;    
@@ -203,7 +177,6 @@ class KidnapWaitOp: public Op {
     virtual void begin() override;
     virtual void end() override;
     virtual void run() override;
-    virtual void onKidnapped(bool state) override;
     virtual void onGpsNoSignal() override;    
 };
 
@@ -244,7 +217,6 @@ class EscapeReverseOp: public Op {
     virtual void begin() override;
     virtual void end() override;
     virtual void run() override;
-    virtual void onImuTilt() override;
     virtual void onImuError() override;
 };
 
@@ -256,7 +228,6 @@ class EscapeForwardOp: public Op {
     virtual void begin() override;
     virtual void end() override;
     virtual void run() override;
-    virtual void onImuTilt() override;
     virtual void onImuError() override;
 };
 
@@ -277,12 +248,10 @@ extern IdleOp idleOp;
 extern MowOp mowOp;
 extern EscapeReverseOp escapeReverseOp;
 extern EscapeForwardOp escapeForwardOp;
-extern KidnapWaitOp kidnapWaitOp;
 extern GpsWaitFixOp gpsWaitFixOp;
 extern GpsWaitFloatOp gpsWaitFloatOp;
 extern GpsRebootRecoveryOp gpsRebootRecoveryOp;
 extern ImuCalibrationOp imuCalibrationOp;
-extern RelocalizationOp relocalizationOp;
 
 // active op
 extern Op *activeOp;

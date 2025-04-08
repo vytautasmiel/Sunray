@@ -123,23 +123,6 @@ bool startIMU(bool forceIMU){
   return true;
 }
 
-
-void dumpImuTilt(){
-  if (millis() < nextDumpTime) return;
-  nextDumpTime = millis() + 10000;
-  CONSOLE.print("IMU tilt: ");
-  CONSOLE.print("ypr=");
-  CONSOLE.print(imuDriver.yaw/PI*180.0);
-  CONSOLE.print(",");
-  CONSOLE.print(imuDriver.pitch/PI*180.0);
-  CONSOLE.print(",");
-  CONSOLE.print(imuDriver.roll/PI*180.0);
-  CONSOLE.print(" rollChange=");
-  CONSOLE.print(rollChange/PI*180.0);
-  CONSOLE.print(" pitchChange=");
-  CONSOLE.println(pitchChange/PI*180.0);
-}
-
 // read IMU sensor (and restart if required)
 // I2C recovery: It can be minutes or hours, then there's an I2C error (probably due an spike on the 
 // SCL/SDA lines) and the I2C bus on the pcb1.3 (and the arduino library) hangs and communication is delayed. 
@@ -178,24 +161,6 @@ void readIMU(){
   if (avail) {        
     //CONSOLE.println("fifoAvailable");
     // Use dmpUpdateFifo to update the ax, gx, mx, etc. values
-    #ifdef ENABLE_TILT_DETECTION
-      rollChange += (imuDriver.roll-stateRoll);
-      pitchChange += (imuDriver.pitch-statePitch);               
-      rollChange = 0.95 * rollChange;
-      pitchChange = 0.95 * pitchChange;
-      statePitch = imuDriver.pitch;
-      stateRoll = imuDriver.roll;        
-      //CONSOLE.print(rollChange/PI*180.0);
-      //CONSOLE.print(",");
-      //CONSOLE.println(pitchChange/PI*180.0);
-      if ( (fabs(scalePI(imuDriver.roll)) > 60.0/180.0*PI) || (fabs(scalePI(imuDriver.pitch)) > 100.0/180.0*PI)
-            || (fabs(rollChange) > 30.0/180.0*PI) || (fabs(pitchChange) > 60.0/180.0*PI)   )  {
-        dumpImuTilt();
-        activeOp->onImuTilt();
-        //stateSensor = SENS_IMU_TILT;
-        //setOperation(OP_ERROR);
-      }           
-    #endif
     motor.robotPitch = scalePI(imuDriver.pitch);
     imuDriver.yaw = scalePI(imuDriver.yaw);
     //CONSOLE.println(imuDriver.yaw / PI * 180.0);
@@ -227,118 +192,6 @@ void computeRobotState(){
   bool useGPSposition = true; // use GPS position?
   bool useGPSdelta = true; // correct yaw with gps delta estimation?
   bool useImuAbsoluteYaw = false; // use IMU yaw absolute value?
-
-  // ------- lidar localization --------------------------
-  #ifdef GPS_LIDAR
-    useGPSdelta = false;
-    useImuAbsoluteYaw = true;
-  #endif      
-  
-  // ------- sideways guidance sheets ---------------------
-  #ifdef DOCK_GUIDANCE_SHEET // use guidance sheet for docking/undocking?
-    if ( maps.isBetweenLastAndNextToLastDockPoint() ){
-      stateLocalizationMode = LOC_GUIDANCE_SHEET;
-      useGPSposition = false;
-      useGPSdelta = false;
-      useImuAbsoluteYaw = false;
-    }
-  #endif
-
-  // ------- vision (april-tag) --------------------------
-  #ifdef DOCK_APRIL_TAG  // use april-tag for docking/undocking?
-    if (maps.isBetweenLastAndNextToLastDockPoint() ){
-      stateLocalizationMode = LOC_APRIL_TAG;
-      useGPSposition = false;
-      useGPSdelta = false;
-      useImuAbsoluteYaw = false;
-      if (stateAprilTagFound){  
-        float robotX = stateXAprilTag; // robot-in-april-tag-frame (x towards outside tag, y left, z up)
-        float robotY = stateYAprilTag;
-        float robotDelta = scalePI(stateDeltaAprilTag);    
-        /*CONSOLE.print("APRIL TAG found: ");      
-        CONSOLE.print(robotX);
-        CONSOLE.print(",");
-        CONSOLE.print(robotY);
-        CONSOLE.print(",");    
-        CONSOLE.println(robotDelta/3.1415*180.0);*/        
-        float dockX;
-        float dockY;
-        float dockDelta;
-        if (maps.getDockingPos(dockX, dockY, dockDelta)){
-          // transform robot-in-april-tag-frame into world frame
-          float worldX = dockX + robotX * cos(dockDelta+3.1415) - robotY * sin(dockDelta+3.1415);
-          float worldY = dockY + robotX * sin(dockDelta+3.1415) + robotY * cos(dockDelta+3.1415);            
-          stateX = worldX;
-          stateY = worldY;
-          stateDelta = scalePI(robotDelta + dockDelta);
-          if (DOCK_FRONT_SIDE) stateDelta = scalePI(stateDelta + 3.1415);
-        }
-      }
-    }
-  #endif
-
-  // map dockpoints setup:                                  |===============================
-  //               GPS waypoint         GPS waypoint    outside tag     
-  //                 x----------------------x---------------------------------------------O (last dockpoint)
-  //                                      outside                inside tag visible      inside tag
-  //                                      tag visible       |===============================          
-  //                                                           
-  // localization:              GPS                     LiDAR          
-  
-  #ifdef DOCK_REFLECTOR_TAG  // use reflector-tag for docking/undocking?
-    if (maps.isBetweenLastAndNextToLastDockPoint()) {
-      if (maps.shouldDock) {
-        stateReflectorTagOutsideFound = false;        
-        stateReflectorUndockCompleted = false;
-      }
-      if ((stateReflectorTagOutsideFound) && (stateXReflectorTag > 0.5)) stateReflectorUndockCompleted = true;
-      if (!stateReflectorUndockCompleted) { 
-        stateLocalizationMode = LOC_REFLECTOR_TAG;
-        useGPSposition = false;
-        useGPSdelta = false;
-        useImuAbsoluteYaw = false;
-        if (stateReflectorTagFound){  
-          // don't use stateXReflectorTag as we don't know which tag was detected   
-          float robotX = stateXReflectorTag;  // robot-in-reflector-tag-frame (x towards outside tag, y left, z up)      
-          if ((stateXReflectorTag > 0) && (stateXReflectorTagLast < 0)){
-            if (!maps.shouldDock){
-              stateReflectorTagOutsideFound = true;
-            } 
-          }        
-          stateXReflectorTagLast = stateXReflectorTag;
-          float robotY = stateYReflectorTag;
-          float robotDelta = scalePI(stateDeltaReflectorTag);    
-          /*CONSOLE.print("REFLECTOR TAG found: ");      
-          CONSOLE.print(robotX);
-          CONSOLE.print(",");
-          CONSOLE.print(robotY);
-          CONSOLE.print(",");    
-          CONSOLE.println(robotDelta/3.1415*180.0);*/        
-          float dockX;
-          float dockY;
-          float dockDelta;
-          //int dockPointsIdx = maps.dockPoints.numPoints-1; 
-          int dockPointsIdx = maps.dockPointsIdx;
-          if (maps.getDockingPos(dockX, dockY, dockDelta, dockPointsIdx)){
-            // transform robot-in-reflector-tag-frame into world frame
-            robotX = 0.2;
-            if (!maps.shouldDock) robotX = -0.2;  
-            if (robotX < 0) {
-              // flip robot at marker
-              //robotX *= -1;
-              //robotY *= -1;
-            }
-            float worldX = dockX + robotX * cos(dockDelta+3.1415) - robotY * sin(dockDelta+3.1415);
-            float worldY = dockY + robotX * sin(dockDelta+3.1415) + robotY * cos(dockDelta+3.1415);            
-            stateX = worldX;
-            stateY = worldY;
-            stateDelta = scalePI(robotDelta + dockDelta);
-            if (DOCK_FRONT_SIDE) stateDelta = scalePI(stateDelta + 3.1415);
-          }
-        }
-      }
-    }
-  #endif
 
   // ---------- odometry ticks ---------------------------
   long leftDelta = motor.motorLeftTicks-stateLeftTicks;
@@ -437,23 +290,6 @@ void computeRobotState(){
       }
     }
   } 
-
-  
-  /*
-  // for testing lidar marker-based docking without GPS  
-  #ifdef DOCK_REFLECTOR_TAG
-    static bool initializedXYDelta = false;
-    if (useGPSposition){
-      if (!initializedXYDelta){
-        CONSOLE.println("initializedXYDelta");
-        stateX = 0;
-        stateY = 0;
-        stateDelta = 0;      
-        initializedXYDelta = true;
-      }
-    }
-  #endif
-  */
   
 
   // odometry

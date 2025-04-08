@@ -1,5 +1,6 @@
 #include "reset.h"
 #include "config.h"
+#include <Arduino.h>
 
 #if defined(__SAMD51__)
 
@@ -23,6 +24,40 @@ ResetCause getResetCause() {
 
 #else
 ResetCause getResetCause() {  
+      // Read the Reset Controller Status Register
+      uint32_t reset_status = RSTC->RSTC_SR;
+
+      // Extract the reset type value using the Mask and Position definitions
+      uint32_t reset_type_value = (reset_status & RSTC_SR_RSTTYP_Msk) >> RSTC_SR_RSTTYP_Pos;
+  
+      Serial.print("Last reset reason code: ");
+      Serial.print(reset_type_value);
+      Serial.print(" - ");
+
+      switch (reset_type_value) {
+        case 0:
+          Serial.println("General Reset (Power-on / Brown-out / User Button)");
+          break;
+        case 1:
+          Serial.println("Backup Reset");
+          break;
+        case 2:
+          Serial.println("Watchdog Reset");
+          break;
+        case 3:
+          Serial.println("Software Reset");
+          break;
+        case 4:
+           // As noted before, this might appear as General Reset (0) after bootloader.
+          Serial.println("User Reset (NRST Pin - may show as General)");
+          break;
+        default:
+          Serial.print("Unknown Reset Type (Status Reg: 0x");
+          Serial.print(reset_status, HEX);
+          Serial.println(")");
+          break;
+      }
+  
   return RST_UNKNOWN;
 } 
    
@@ -30,7 +65,6 @@ ResetCause getResetCause() {
 
 
 void logResetCause(){
-  CONSOLE.print("RESET cause: ");
   switch (getResetCause()){
     case RST_UNKNOWN: CONSOLE.println("unknown"); break;
     case RST_POWER_ON : CONSOLE.println("power-on"); break;
@@ -46,11 +80,9 @@ void logResetCause(){
 // get free memory
 // https://learn.adafruit.com/memories-of-an-arduino/measuring-free-memory
 int freeMemory() {
-#ifdef __linux__
-  return 1000000;
-#else
+
   char top;
   return &top - reinterpret_cast<char*>(sbrk(0));
-#endif
+
 }
 

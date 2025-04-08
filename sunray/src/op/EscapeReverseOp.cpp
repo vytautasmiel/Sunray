@@ -34,12 +34,6 @@ void EscapeReverseOp::run(){
         CONSOLE.println("driveReverseStopTime");
         motor.stopImmediately(false); 
         driveReverseStopTime = 0;
-        if (detectLift()) {
-            CONSOLE.println("error: lift sensor!");
-            stateSensor = SENS_LIFT;
-            changeOp(errorOp);
-            return;
-        }
         if (maps.isDocking()){
             CONSOLE.println("continue docking");
             // continue without obstacles
@@ -54,13 +48,6 @@ void EscapeReverseOp::run(){
             changeOp(*nextOp, false);    // continue current operation
         }
     }
-}
-
-
-
-void EscapeReverseOp::onImuTilt(){
-    stateSensor = SENS_IMU_TILT;
-    changeOp(errorOp);
 }
 
 void EscapeReverseOp::onImuError(){

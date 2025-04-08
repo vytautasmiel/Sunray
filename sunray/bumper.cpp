@@ -34,62 +34,15 @@ void Bumper::run() {
   inputLeftPressed   = bumperDriver.getLeftBumper();
   inputRightPressed  = bumperDriver.getRightBumper();
 
-  if (BUMPER_INVERT){
-    inputLeftPressed = !inputLeftPressed;
-    inputRightPressed = !inputRightPressed;
-  }
-
-  if (BUMPER_ENABLE){
     outputLeftPressed = inputLeftPressed;
     outputRightPressed = inputRightPressed;  
-  
-    /*
-    FIXME: code does not seem to work properly in all cases
-    https://github.com/Ardumower/Sunray/pull/103#issuecomment-1215526140
-    IDEA: do not check bumper errors here, check them (like for the lift-sensor) in 'src/EscapeReverseOp.cpp/run'
-
-    bool bumperLeft   = false;
-    bool bumperRight  = false;
-
-    // delay for the bumper inputs
-    if (inputLeftPressed){
-      if (millis() >= (leftPressedOnDelay + BUMPER_TRIGGER_DELAY)) bumperLeft = true;
-    } else leftPressedOnDelay = millis();
-
-    if (inputRightPressed){
-      if (millis() >= (rightPressedOnDelay + BUMPER_TRIGGER_DELAY)) bumperRight = true;
-    } else rightPressedOnDelay = millis();
-
-    if (millis() > (linearMotionStartTime + BUMPER_DEADTIME)){
-      outputLeftPressed   = bumperLeft;
-      outputRightPressed  = bumperRight;
-    } else outputLeftPressed = outputRightPressed = false;
-
-    
-    // check if bumper stays triggered for a long time periode (maybe blocked)
-    if ((bumperRight || bumperLeft) && (BUMPER_MAX_TRIGGER_TIME > 0)){
-      if ((abs(motor.linearSpeedSet) >= 0.05) || (abs(motor.angularSpeedSet) >= 0.05)) { // if no movement, bumperStayActivTime paused
-        bumperStayActivTime = bumperStayActivTime + (millis()-lastCallBumperObstacle);
-      }
-      if ((bumperStayActivTime) > (BUMPER_MAX_TRIGGER_TIME * 1000)){ // maximum trigger time reached -> set error
-        if (stateOp != OP_ERROR){
-          stateSensor = SENS_BUMPER;
-          CONSOLE.println("ERROR BUMPER BLOCKED - BUMPER_MAX_TRIGGER_TIME exceeded. See config.h for further information");
-          setOperation(OP_ERROR);
-        }
-      }
-    } else bumperStayActivTime = 0;
-    */
     lastCallBumperObstacle = millis();
-  }
+
 }
 
 
 bool Bumper::obstacle(){
-  if (BUMPER_ENABLE){
     return (outputLeftPressed || outputRightPressed);
-  }
-  else return false;
 }
 
 bool Bumper::nearObstacle(){

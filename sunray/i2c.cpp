@@ -2,7 +2,6 @@
 #include <Wire.h>
 #include "config.h"
 
-#ifndef __linux__
   #if defined(__AVR_ATmega328P__)  
     // Nano pins  
     #define SDA A4
@@ -12,7 +11,7 @@
     #define SDA 20
     #define SCL 21
   #endif
-#endif
+
 
 
 /**
@@ -27,9 +26,6 @@
  *         3 if SDA held low after 20 clocks.
  */
 int I2CclearBus() {
-#ifdef __linux__
-  return 0;
-#else
   #if defined(TWCR) && defined(TWEN)
     TWCR &= ~(_BV(TWEN)); //Disable the Atmel 2-Wire interface so we can control the SDA and SCL pins directly
   #endif
@@ -90,13 +86,11 @@ int I2CclearBus() {
   pinMode(SDA, INPUT); // and reset pins as tri-state inputs which is the default state on reset
   pinMode(SCL, INPUT);
   return 0; // all ok
-#endif
+
 }
 
 void I2Creset(){
-#ifdef __linux__
-  CONSOLE.println("I2Creset disabled");  
-#else
+
   #ifdef __AVR_ATmega2560__
     CONSOLE.println(F("WARNING Mega2560: you may have to add 4k7 resistors (pull-ups) between SDA, SCL and IOREF for proper I2C bus"));  
   #endif 
@@ -113,7 +107,7 @@ void I2Creset(){
       CONSOLE.println(F("SDA data line held low"));
     }
   }
-#endif
+
 }
 
 void I2CwriteTo(uint8_t device, uint8_t address, uint8_t val) {

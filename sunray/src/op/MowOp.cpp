@@ -35,8 +35,6 @@ void MowOp::begin(){
 
     // plan route to next target point 
 
-    dockOp.dockReasonRainTriggered = false;    
-
     if (((initiatedByOperator) && (previousOp == &idleOp)) || (lastMapRoutingFailed))  maps.clearObstacles();
 
     if (maps.startMowing(stateX, stateY)){
@@ -99,34 +97,6 @@ void MowOp::run(){
             CONSOLE.println("TIMETABLE - IDLE");
             changeOp(idleOp);
         }
-    }
-}
-
-void MowOp::onRainTriggered(){
-    if (DOCKING_STATION){
-        CONSOLE.println("RAIN TRIGGERED");
-        Logger.event(EVT_RAIN_DOCKING);
-        stateSensor = SENS_RAIN;
-        dockOp.dockReasonRainTriggered = true;
-        #ifdef DRV_SIM_ROBOT
-            dockOp.dockReasonRainAutoStartTime = millis() + 60000 * 3; // try again after 3 minutes 
-        #else
-            dockOp.dockReasonRainAutoStartTime = millis() + 60000 * 60; // try again after one hour 
-        #endif
-        dockOp.setInitiatedByOperator(false);
-        changeOp(dockOp);              
-    }
-}
-
-void MowOp::onTempOutOfRangeTriggered(){
-    if (DOCKING_STATION){
-        CONSOLE.println("TEMP OUT-OF-RANGE TRIGGERED");
-        Logger.event(EVT_TEMPERATURE_OUT_OF_RANGE_DOCK);
-        stateSensor = SENS_TEMP_OUT_OF_RANGE;
-        dockOp.dockReasonRainTriggered = true;
-        dockOp.dockReasonRainAutoStartTime = millis() + 60000 * 60; // try again after one hour      
-        dockOp.setInitiatedByOperator(false);
-        changeOp(dockOp);              
     }
 }
 
@@ -272,14 +242,6 @@ void MowOp::onGpsNoSignal(){
     }
 }
 
-void MowOp::onKidnapped(bool state){
-    if (state){
-        stateSensor = SENS_KIDNAPPED;      
-        motor.setLinearAngularSpeed(0,0, false); 
-        motor.setMowState(false);            
-        changeOp(kidnapWaitOp, true); 
-    }
-}
 
 void MowOp::onNoFurtherWaypoints(){
     CONSOLE.println("mowing finished!");
@@ -294,12 +256,6 @@ void MowOp::onNoFurtherWaypoints(){
             changeOp(idleOp); 
         }
     }
-}
-
-void MowOp::onImuTilt(){
-    stateSensor = SENS_IMU_TILT;
-    Logger.event(EVT_ROBOT_TILTED);
-    changeOp(errorOp);
 }
 
 void MowOp::onImuError(){

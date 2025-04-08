@@ -23,8 +23,6 @@ void Motor::begin() {
   #endif
   
   pwmSpeedOffset = 1.0;
-  
-  mowHeightMillimeter = 50;
 
   //ticksPerRevolution = 1060/2;
   ticksPerRevolution = TICKS_PER_REVOLUTION;
@@ -128,13 +126,6 @@ void Motor::setMowMaxPwm( int val ){
   pwmMaxMow = val;
 }
 
-void Motor::setMowHeightMillimeter( int val )
-{
-  CONSOLE.print("Motor::setMowHeightMillimeter ");
-  CONSOLE.println(val);
-  mowHeightMillimeter = val;
-  motorDriver.setMowHeight(mowHeightMillimeter);
-}
 
 void Motor::speedPWM ( int pwmLeft, int pwmRight, int pwmMow )
 {

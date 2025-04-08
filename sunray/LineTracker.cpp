@@ -30,7 +30,6 @@ bool angleToTargetFits = false;
 bool langleToTargetFits = false;
 bool targetReached = false;
 float trackerDiffDelta = 0;
-bool stateKidnapped = false;
 bool printmotoroverload = false;
 bool trackerDiffDelta_positive = false;
 float lastLineDist = 0;
@@ -53,23 +52,7 @@ void trackLine(bool runControl){
   float distToPath = distanceLine(stateX, stateY, lastTarget.x(), lastTarget.y(), target.x(), target.y());        
 
   float lineDist = maps.distanceToTargetPoint(lastTarget.x(), lastTarget.y());
-  /*if ((abs(lineDist-lastLineDist ) > 0.0) || (abs(distToPath) > 0.5)) {
-    CONSOLE.print("distToPath=");
-    CONSOLE.print(distToPath);
-    CONSOLE.print(" x=");
-    CONSOLE.print(stateX);
-    CONSOLE.print(" y=");    
-    CONSOLE.print(stateY);
-    CONSOLE.print(" lastX=");    
-    CONSOLE.print(lastTarget.x());
-    CONSOLE.print(" lastY=");    
-    CONSOLE.print(lastTarget.y());
-    CONSOLE.print(" tgX=");    
-    CONSOLE.print(target.x());
-    CONSOLE.print(" tgY=");    
-    CONSOLE.println(target.y());
-    lastLineDist = lineDist;
-  }*/
+
   float targetDist = maps.distanceToTargetPoint(stateX, stateY);
   
   float lastTargetDist = maps.distanceToLastTargetPoint(stateX, stateY);  
@@ -152,14 +135,6 @@ void trackLine(bool runControl){
         linear = 0.1;  // slow down near obstacles 
         //CONSOLE.println("SLOW: BUMPER");      
       }
-      if (lidarBumper.nearObstacle()){
-        linear = 0.1;  // slow down near obstacles 
-        //CONSOLE.println("SLOW: LiDAR");      
-      }
-      if (sonar.nearObstacle()) {
-        linear = 0.1; // slow down near obstacles
-        //CONSOLE.println("SLOW: sonar");      
-      }
     }      
     // slow down speed in case of overload and overwrite all prior speed 
     if ( (motor.motorLeftOverload) || (motor.motorRightOverload) || (motor.motorMowOverload) ){
@@ -226,74 +201,7 @@ void trackLine(bool runControl){
       }
     }
   }
-  if (stateLocalizationMode == LOC_APRIL_TAG){
-    if (!stateAprilTagFound){
-      linear = 0; // wait until april-tag found 
-      angular = 0; 
-    } else {
-      if (!buzzer.isPlaying()) buzzer.sound(SND_WARNING, true);
-      //linear = 0; // wait until april-tag found 
-      //angular = 0; 
-    }
-  }
-  if (stateLocalizationMode == LOC_REFLECTOR_TAG){
-    if (!stateReflectorTagFound){
-      linear = 0; // wait until reflector-tag found 
-      angular = 0; 
-    } else {
-      if (!buzzer.isPlaying()) buzzer.sound(SND_WARNING, true);
-      float maxAngular = 0.015;  // 0.02
-      float maxLinear = 0.05;      
-      angular =  max(min(1.0 * trackerDiffDelta, maxAngular), -maxAngular);
-      angular =  max(min(angular, maxAngular), -maxAngular);      
-      linear = 0.05;      
-      if (maps.trackReverse) linear = -0.05;   // reverse line tracking needs negative speed           
-    }
-  }
-  if (stateLocalizationMode == LOC_GUIDANCE_SHEET){
-      if (!buzzer.isPlaying()) buzzer.sound(SND_WARNING, true);
-      angular = 0;
-  }
-
-  // gps-jump/false fix check
-  if (KIDNAP_DETECT){
-    float allowedPathTolerance = KIDNAP_DETECT_ALLOWED_PATH_TOLERANCE;     
-    if ( maps.isUndocking() || maps.isDocking() ) {
-        float dockX = 0;
-        float dockY = 0;
-        float dockDelta = 0;
-        maps.getDockingPos(dockX, dockY, dockDelta);
-        float dist = distance(dockX, dockY, stateX, stateY);
-        // check if current distance to docking station is below
-        // KIDNAP_DETECT_DISTANCE_DOCK_UNDOCK to trigger KIDNAP_DETECT_ALLOWED_PATH_TOLERANCE_DOCK_UNDOCK
-        if (dist < KIDNAP_DETECT_DISTANCE_DOCK_UNDOCK) {
-            allowedPathTolerance = KIDNAP_DETECT_ALLOWED_PATH_TOLERANCE_DOCK_UNDOCK;
-        }
-    }    
-    if ((stateLocalizationMode == LOC_GPS) && (fabs(distToPath) > allowedPathTolerance)){ // actually, this should not happen (except on false GPS fixes or robot being kidnapped...)
-      if (!stateKidnapped){
-        stateKidnapped = true;
-        CONSOLE.print("KIDNAP_DETECT: stateKidnapped=");
-        CONSOLE.print(stateKidnapped);
-        CONSOLE.print(" distToPath=");
-        CONSOLE.println(distToPath);
-        activeOp->onKidnapped(stateKidnapped);
-      }            
-    } else {
-      if (stateKidnapped) {
-        stateKidnapped = false;
-        CONSOLE.print("KIDNAP_DETECT: stateKidnapped=");
-        CONSOLE.print(stateKidnapped);
-        CONSOLE.print(" distToPath=");
-        CONSOLE.println(distToPath);
-        activeOp->onKidnapped(stateKidnapped);        
-      }
-    }
-  }
    
-  // in any case, turn off mower motor if lifted 
-  // also, if lifted, do not turn on mowing motor so that the robot will drive and can do obstacle avoidance 
-  if (detectLift()) mow = false;
   
   if (mow)  { 
     if (millis() < motor.motorMowSpinUpTime + 10000){

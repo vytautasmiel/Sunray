@@ -25,8 +25,6 @@ void ChargeOp::begin(){
     CONSOLE.print("OP_CHARGE");
     CONSOLE.print(" dockOp.initiatedByOperator=");
     CONSOLE.print(dockOp.initiatedByOperator);
-    CONSOLE.print(" dockReasonRainTriggered=");
-    CONSOLE.println(dockOp.dockReasonRainTriggered);
 
     //motor.stopImmediately(true); // do not use PID to get to stop 
     motor.setLinearAngularSpeed(0,0, false); 
@@ -93,11 +91,7 @@ void ChargeOp::run(){
                 CONSOLE.print(", maps.mowPointsIdx=");
                 CONSOLE.print(maps.mowPointsIdx);
                 CONSOLE.print(", DOCK_AUTO_START=");
-                CONSOLE.print(DOCK_AUTO_START);
-                CONSOLE.print(", dockOp.dockReasonRainTriggered=");
-                CONSOLE.print(dockOp.dockReasonRainTriggered);
-                CONSOLE.print(", dockOp.dockReasonRainAutoStartTime(min remain)=");
-                CONSOLE.print( ((int)(dockOp.dockReasonRainAutoStartTime - millis())) / 60000 );                                
+                CONSOLE.print(DOCK_AUTO_START);                               
                 CONSOLE.print(", timetable.mowingCompletedInCurrentTimeFrame=");                
                 CONSOLE.print(timetable.mowingCompletedInCurrentTimeFrame);
                 CONSOLE.print(", timetable.mowingAllowed=");                
@@ -154,12 +148,4 @@ void ChargeOp::onChargerConnected(){
 
 void ChargeOp::onBatteryUndervoltage(){    
     stateSensor = SENS_BAT_UNDERVOLTAGE;
-}
-
-void ChargeOp::onRainTriggered(){
-    if (DOCKING_STATION){
-        dockOp.dockReasonRainAutoStartTime = millis() + 60000 * 60; // ensure rain sensor is dry for one hour                       
-        //CONSOLE.print("RAIN TRIGGERED dockOp.dockReasonRainAutoStartTime=");
-        //CONSOLE.println(dockOp.dockReasonRainAutoStartTime);
-    }
 }

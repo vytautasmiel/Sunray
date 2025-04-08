@@ -62,34 +62,6 @@ void Point::setXY(float ax, float ay){
 long Point::crc(){
   return (px + py);  
 }
-
-bool Point::read(File &file){
-  byte marker = file.read();
-  if (marker != 0xAA){
-    CONSOLE.println("ERROR reading point: invalid marker");
-    return false;
-  }
-  bool res = true;
-  res &= (file.read((uint8_t*)&px, sizeof(px)) != 0);
-  res &= (file.read((uint8_t*)&py, sizeof(py)) != 0);
-  if (!res) {
-    CONSOLE.println("ERROR reading point");
-  }
-  return res;
-}
-
-bool Point::write(File &file){
-  bool res = true;
-  res &= (file.write(0xAA) != 0);
-  res &= (file.write((uint8_t*)&px, sizeof(px)) != 0);
-  res &= (file.write((uint8_t*)&py, sizeof(py)) != 0);
-  if (!res) {
-    CONSOLE.println("ERROR writing point");
-  }
-  return res;
-}
-
-
 // -----------------------------------
 Polygon::Polygon(){  
   init();
@@ -164,36 +136,6 @@ long Polygon::crc(){
   return crc;
 }
 
-bool Polygon::read(File &file){
-  byte marker = file.read();
-  if (marker != 0xBB){
-    CONSOLE.println("ERROR reading polygon: invalid marker");
-    return false;
-  }
-  short num = 0;
-  file.read((uint8_t*)&num, sizeof(num));
-  //CONSOLE.print("reading points:");
-  //CONSOLE.println(num);
-  if (!alloc(num)) return false;
-  for (short i=0; i < num; i++){    
-    if (!points[i].read(file)) return false;
-  }
-  return true;
-}
-
-bool Polygon::write(File &file){
-  if (file.write(0xBB) == 0) return false;  
-  if (file.write((uint8_t*)&numPoints, sizeof(numPoints)) == 0) {
-    CONSOLE.println("ERROR writing polygon");
-    return false; 
-  }
-  //CONSOLE.print("writing points:");
-  //CONSOLE.println(numPoints);
-  for (int i=0; i < numPoints; i++){    
-    if (!points[i].write(file)) return false;
-  }
-  return true;  
-}
 
 void Polygon::getCenter(Point &pt){
   float minX = 9999;
@@ -292,41 +234,6 @@ long PolygonList::crc(){
   }
   return crc;
 }
-
-bool PolygonList::read(File &file){
-  byte marker = file.read();
-  if (marker != 0xCC){
-    CONSOLE.println("ERROR reading polygon list: invalid marker");
-    return false;
-  }
-  short num = 0;
-  file.read((uint8_t*)&num, sizeof(num)); 
-  //CONSOLE.print("reading polygon list:");
-  //CONSOLE.println(num);
-  if (!alloc(num)) return false;
-  for (short i=0; i < num; i++){    
-    if (!polygons[i].read(file)) return false;
-  }
-  return true;
-}
-
-bool PolygonList::write(File &file){
-  if (file.write(0xCC) == 0) {
-    CONSOLE.println("ERROR writing polygon list marker");
-    return false;  
-  } 
-  if (file.write((uint8_t*)&numPolygons, sizeof(numPolygons)) == 0) {
-    CONSOLE.println("ERROR writing polygon list");
-    return false; 
-  }
-  //CONSOLE.print("writing polygon list:");
-  //CONSOLE.println(numPolygons);
-  for (int i=0; i < numPolygons; i++){    
-    if (!polygons[i].write(file)) return false;
-  }
-  return true;  
-}
-
 
 // -----------------------------------
 
@@ -561,78 +468,12 @@ void Map::checkMemoryErrors(){
 
 bool Map::load(){
   bool res = true;
-#if defined(ENABLE_SD_RESUME)  
-  CONSOLE.print("map load... ");
-  if (!SD.exists("map.bin")) {
-    CONSOLE.println("no map file!");
-    return false;
-  }
-  mapFile = SD.open("map.bin", FILE_READ);
-  if (!mapFile){        
-    CONSOLE.println("ERROR opening file for reading");
-    return false;
-  }
-  uint32_t marker = 0;
-  mapFile.read((uint8_t*)&marker, sizeof(marker));
-  if (marker != 0x00001000){
-    CONSOLE.print("ERROR: invalid marker: ");
-    CONSOLE.println(marker, HEX);
-    return false;
-  }
-  res &= (mapFile.read((uint8_t*)&mapCRC, sizeof(mapCRC)) != 0); 
-  res &= (mapFile.read((uint8_t*)&exclusionPointsCount, sizeof(exclusionPointsCount)) != 0);     
-  res &= perimeterPoints.read(mapFile);
-  res &= exclusions.read(mapFile);    
-  res &= dockPoints.read(mapFile);
-  res &= mowPoints.read(mapFile);        
-  
-  mapFile.close();  
-  long expectedCRC = calcMapCRC();
-  if (mapCRC != expectedCRC){
-    CONSOLE.print("ERROR: invalid map CRC:");
-    CONSOLE.print(mapCRC);
-    CONSOLE.print(" expected:");
-    CONSOLE.println(expectedCRC);
-    res = false;
-  }
-  if (res){
-    CONSOLE.println("ok");
-  } else {
-    CONSOLE.println("ERROR loading map");
-    clearMap(); 
-  }
-#endif
   return res;
 }
 
 
 bool Map::save(){
   bool res = true;
-#if defined(ENABLE_SD_RESUME)  
-  CONSOLE.print("map save... ");
-  mapFile = SD.open("map.bin", FILE_CREATE); // O_WRITE | O_CREAT);
-  if (!mapFile){        
-    CONSOLE.println("ERROR opening file for writing");
-    return false;
-  }
-  uint32_t marker = 0x00001000;
-  res &= (mapFile.write((uint8_t*)&marker, sizeof(marker)) != 0);
-  res &= (mapFile.write((uint8_t*)&mapCRC, sizeof(mapCRC)) != 0);
-  res &= (mapFile.write((uint8_t*)&exclusionPointsCount, sizeof(exclusionPointsCount)) != 0);
-  if (res){
-    res &= perimeterPoints.write(mapFile);
-    res &= exclusions.write(mapFile);    
-    res &= dockPoints.write(mapFile);
-    res &= mowPoints.write(mapFile);        
-  }      
-  if (res){
-    CONSOLE.println("ok");
-  } else {
-    CONSOLE.println("ERROR saving map");
-  }
-  mapFile.flush();
-  mapFile.close();
-#endif
   return res;    
 }
 
@@ -640,23 +481,6 @@ bool Map::save(){
 
 void Map::finishedUploadingMap(){
   CONSOLE.println("finishedUploadingMap");
-  #ifdef DRV_SIM_ROBOT
-    float x;
-    float y;
-    float delta;
-    if (getDockingPos(x, y, delta)){
-      CONSOLE.println("SIM: setting robot pos to docking pos");      
-      if (!DOCK_FRONT_SIDE) delta = scalePI(delta + 3.1415);
-      robotDriver.setSimRobotPosState(x, y, delta);
-    } else {
-      CONSOLE.println("SIM: error getting docking pos");
-      if (perimeterPoints.numPoints > 0){
-        Point pt = perimeterPoints.points[0];
-        //perimeterPoints.getCenter(pt);
-        robotDriver.setSimRobotPosState(pt.x(), pt.y(), 0);
-      }
-    }
-  #endif
   mapCRC = calcMapCRC();
   Logger.event(EVT_USER_UPLOAD_MAP);
   dump();
@@ -791,34 +615,6 @@ bool Map::setExclusionLength(int idx, int len){
   //CONSOLE.print(": ");
   //CONSOLE.println(exclusionLength[idx]);   
   return true;
-}
-
-
-// visualize result with:  https://www.graphreader.com/plotter
-void Map::generateRandomMap(){
-  CONSOLE.println("Map::generateRandomMap");
-  clearMap();    
-  int idx = 0;
-  float angle = 0;
-  int steps = 30;
-  for (int i=0; i < steps; i++){
-    float maxd = 10;
-    float d = 10 + ((float)random(maxd*10))/10.0;  // -d/2;
-    float x = cos(angle) * d;
-    float y = sin(angle) * d; 
-    setPoint(idx, x, y);
-    //CONSOLE.print(idx);
-    //CONSOLE.print(",");
-    CONSOLE.print(x);
-    CONSOLE.print(",");    
-    CONSOLE.println(y);
-    angle += 2*PI / ((float)steps);
-    idx++;    
-  }
-  setWayCount(WAY_PERIMETER, steps);
-  setWayCount(WAY_EXCLUSION, 0);
-  setWayCount(WAY_DOCK, 0);
-  setWayCount(WAY_MOW, 0);
 }
 
 
@@ -1250,41 +1046,9 @@ bool Map::nextPoint(bool sim,float stateX, float stateY){
     return (nextDockPoint(sim));
   } 
   else if (wayMode == WAY_MOW) {
-#ifndef __linux__
+
     return (nextMowPoint(sim));
-#else
-    Point src;
-    Point dst;
-    bool r = (nextMowPoint(sim));
-    if (!r) {
-      // no new mow point available - fast path exit
-      return false;
-    }
 
-    src.setXY(stateX, stateY);
-    // dst might be in an obstacle... check if we can move or may use a new point...
-    if (!findObstacleSafeMowPoint(dst)) {
-      // didn't find a safe dst fall back to old behaviour
-      CONSOLE.println("Map::nextPoint: WARN: no safe mow point found - fall back to normal behaviour!");
-      return true;
-    }
-    bool fr = findPath(src, dst);
-    if (!fr) {
-      // try again without obstacles
-      clearObstacles();
-      fr = findPath(src, dst);
-    }
-    if (!fr) {
-      // still didn't find a path - fall back to old behaviour
-      CONSOLE.println("Map::nextPoint: WARN: no path - fall back to normal behaviour!");
-      return true;
-    }
-
-    // move to WAY_FREE list
-    wayMode = WAY_FREE;
-
-    return true;
-#endif
   } 
   else if (wayMode == WAY_FREE) {
     return (nextFreePoint(sim));

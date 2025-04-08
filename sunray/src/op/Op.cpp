@@ -19,12 +19,10 @@ IdleOp idleOp;
 MowOp mowOp;
 EscapeReverseOp escapeReverseOp;
 EscapeForwardOp escapeForwardOp;
-KidnapWaitOp kidnapWaitOp;
 GpsWaitFixOp gpsWaitFixOp;
 GpsWaitFloatOp gpsWaitFloatOp;
 GpsRebootRecoveryOp gpsRebootRecoveryOp;
 ImuCalibrationOp imuCalibrationOp;
-RelocalizationOp relocalizationOp;
 
 // active op
 Op *activeOp = &idleOp;
@@ -190,8 +188,6 @@ float Op::getDockDistance(){
 void Op::run(){
 }
 
-void Op::onKidnapped(bool state){
-}
 
 void Op::onGpsNoSignal(){    
 }
@@ -199,14 +195,6 @@ void Op::onGpsNoSignal(){
 void Op::onGpsFixTimeout(){
 }
 
-void Op::onRainTriggered(){
-}
-
-void Op::onTempOutOfRangeTriggered(){
-}
-
-void Op::onLiftTriggered(){
-}
 
 void Op::onOdometryError(){
 }
@@ -244,10 +232,6 @@ void Op::onImuCalibration(){
     changeOp(imuCalibrationOp, true);
 }
 
-void Op::onRelocalization(){
-    changeOp(relocalizationOp, true);
-}
-
 void Op::onChargerConnected(){            
 }
 
@@ -266,8 +250,6 @@ void Op::onTimetableStartMowing(){
 void Op::onTimetableStopMowing(){    
 }
 
-void Op::onImuTilt(){
-}
 
 void Op::onImuError(){
 }

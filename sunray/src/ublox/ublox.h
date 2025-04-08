@@ -50,7 +50,10 @@ class UBLOX : public GpsDriver {
     void run() override;
     bool configure() override;  
     void reboot() override;
+
   private:
+    bool executeConfigGroup(int groupIndex, int timeout);
+    bool tryExecuteConfigGroupWithRetry(int groupIndex, int timeout);
     bool useTCP;
     Client* _client;    
     uint32_t _baud;  	

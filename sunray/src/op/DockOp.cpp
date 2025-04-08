@@ -14,8 +14,6 @@
 DockOp::DockOp(){
   lastMapRoutingFailed = false;
   mapRoutingFailedCounter = 0;
-  dockReasonRainTriggered = false;
-  dockReasonRainAutoStartTime = 0;
 }
 
 
@@ -42,8 +40,6 @@ void DockOp::begin(){
   CONSOLE.print("OP_DOCK");
   CONSOLE.print(" initiatedByOperator=");
   CONSOLE.print(initiatedByOperator);
-  CONSOLE.print(" dockReasonRainTriggered=");
-  CONSOLE.println(dockReasonRainTriggered);
 
   // plan route to next target point 
 
@@ -120,15 +116,6 @@ void DockOp::onGpsNoSignal(){
     if (REQUIRE_VALID_GPS){   
       stateSensor = SENS_GPS_INVALID;
       changeOp(gpsWaitFloatOp, true);
-    }
-}
-
-void DockOp::onKidnapped(bool state){
-    if (state){
-        stateSensor = SENS_KIDNAPPED;      
-        motor.setLinearAngularSpeed(0,0, false); 
-        motor.setMowState(false);    
-        changeOp(kidnapWaitOp, true); 
     }
 }
 

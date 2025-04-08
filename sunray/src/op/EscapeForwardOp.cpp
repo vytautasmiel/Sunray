@@ -41,10 +41,6 @@ void EscapeForwardOp::run(){
     }
 }
 
-void EscapeForwardOp::onImuTilt(){
-    stateSensor = SENS_IMU_TILT;
-    changeOp(errorOp);
-}
 
 void EscapeForwardOp::onImuError(){
     stateSensor = SENS_IMU_TIMEOUT;
